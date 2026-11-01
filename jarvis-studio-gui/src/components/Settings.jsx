@@ -12,6 +12,7 @@ import {
   openAccessibilitySettingsScreen,
 } from "../brain/platform";
 import { evaluateFeatures, gatherFeatureContext } from "../brain/features";
+import { latencySummary, resetLatency } from "../brain/latency";
 import { modelClassFor } from "../brain/modelPolicy";
 import {
   SARVAM_VOICES,
@@ -1549,6 +1550,26 @@ export default function Settings({
             <span className="sp-value sp-mono">{sysInfo.ram} GB</span>
           </div>
         )}
+      </Group>
+      <Group title="Voice speed (measured on this phone)">
+        <div className="sp-field">
+          {(() => {
+            const s = latencySummary();
+            const sec = (ms) => (ms == null ? "–" : `${(ms / 1000).toFixed(1)} s`);
+            return s.count === 0 ? (
+              <div className="sp-desc">Talk to FRIDAY a few times, then re-open this page.</div>
+            ) : (
+              <>
+                <div className="sp-desc">Typical of the last {s.count} turns:</div>
+                <div className="sp-row"><span className="sp-label">Hearing you</span><span className="sp-value">{sec(s.hearMs)}</span></div>
+                <div className="sp-row"><span className="sp-label">Thinking</span><span className="sp-value">{sec(s.thinkMs)}</span></div>
+                <div className="sp-row"><span className="sp-label">Speaking</span><span className="sp-value">{sec(s.speakMs)}</span></div>
+                <div className="sp-row"><span className="sp-label">Whole turn</span><span className="sp-value">{sec(s.totalMs)}</span></div>
+                <button type="button" className="sp-btn" onClick={() => resetLatency()}>Clear</button>
+              </>
+            );
+          })()}
+        </div>
       </Group>
       <Group title="Feature status">
         <div className="sp-field">

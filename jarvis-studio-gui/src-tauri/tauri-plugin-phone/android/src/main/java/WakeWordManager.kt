@@ -77,7 +77,7 @@ class WakeWordManager(
         private const val MODEL_JARVIS = "hey_jarvis.onnx"
         /** Quick mode: a 0.65 s pause ends the command (normal is 1 s) — the reply starts
          *  sooner. For the car; a slow speaker's mid-sentence pause can get cut. */
-        private const val QUICK_SILENCE_MS = 750L
+        private const val QUICK_SILENCE_MS = 900L
         @Volatile private var silenceMs = CommandCapture.SILENCE_MS
 
         /** The model the engine last loaded (what JS is told, so it knows which name can wake). */

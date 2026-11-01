@@ -302,6 +302,7 @@ internal class IdentityVerifyHostEnvelopeArgs {
 internal class FileOpArgs {
     var uri: String = ""
     var path: String = ""
+    var base64: Boolean = false
 }
 
 @InvokeArg
@@ -1972,14 +1973,17 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(result(false, "Couldn't find that file."))
             return
         }
-        val maxBytes = 200_000
+        // base64 = a binary Office document the JS side unzips and reads; plain text keeps the old 200 KB cap.
+        val maxBytes = if (args.base64) 12_000_000 else 200_000
         if (file.length() > maxBytes) {
-            invoke.resolve(result(false, "That file is too large to read here (over ${maxBytes / 1000} KB)."))
+            val limit = if (args.base64) "${maxBytes / 1_000_000} MB" else "${maxBytes / 1000} KB"
+            invoke.resolve(result(false, "That file is too large to read here (over $limit)."))
             return
         }
         try {
             val text = activity.contentResolver.openInputStream(file.uri)?.use {
-                it.readBytes().toString(Charsets.UTF_8)
+                if (args.base64) android.util.Base64.encodeToString(it.readBytes(), android.util.Base64.NO_WRAP)
+                else it.readBytes().toString(Charsets.UTF_8)
             }
             if (text == null) {
                 invoke.resolve(result(false, "Couldn't open that file."))

@@ -9,6 +9,7 @@
  * Voice (STT/TTS), info-tools, and on-phone control land in later Phase 1/2 steps.
  */
 
+import { turnStart, turnReplied, turnEnd } from "../brain/latency";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBrain } from "../brain";
 import { resolveBrainConfig } from "../brain/resolveConfig";
@@ -1597,6 +1598,7 @@ export function useBrain() {
       if (!brainRef.current) return;
       busyRef.current = true;
       setStatus("thinking");
+      turnStart();
       const replyId = uid();
       let spoken = "";
       try {
@@ -1607,12 +1609,14 @@ export function useBrain() {
           storedRef.current.agentMode === true && !display ? activeAgentRef.current : "auto",
         );
         spoken = reply;
+        turnReplied();
         setMessages((prev) => [
           ...prev,
           { role: "jarvis", text: reply, actions: drainCards(), finalized: true, id: replyId },
         ]);
       } catch (err) {
         spoken = `Sorry — I hit an error: ${err?.message || err}`;
+        turnReplied();
         setMessages((prev) => [
           ...prev,
           { role: "jarvis", text: spoken, actions: drainCards(), finalized: true, id: replyId },
@@ -1626,6 +1630,7 @@ export function useBrain() {
           await webSpeechTTS.speak(spoken);
         }
       } finally {
+        turnEnd(!mutedRef.current && Boolean(spoken));
         busyRef.current = false;
         setStatus("idle");
       }

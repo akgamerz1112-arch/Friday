@@ -68,3 +68,36 @@ describe("persona switch", () => {
     }
   });
 });
+
+describe("open an app instantly", () => {
+  const open = (s: string) => {
+    const r = matchFastCommand(s);
+    return r && r.type === "app" ? r.name : null;
+  };
+  it("Hindi, Hinglish and English", () => {
+    expect(open("youtube kholo")).toBe("youtube");
+    expect(open("Hey Jarvis, YouTube kholo")).toBe("youtube");
+    expect(open("यूट्यूब खोलो")).toBe("youtube");
+    expect(open("open whatsapp")).toBe("whatsapp");
+    expect(open("व्हाट्सएप खोल दो")).toBe("whatsapp");
+    expect(open("camera open karo")).toBe("camera");
+    expect(open("zomato kholo")).toBe("zomato");
+  });
+  it("leaves other things alone", () => {
+    expect(open("google search kholo")).toBeNull();
+    expect(open("kholo")).toBeNull();
+    expect(open("torch on karo")).toBeNull();
+    expect(open("website kholo")).toBeNull();
+  });
+  it("brightness, DND and lock", () => {
+    const a = (s: string) => {
+      const r = matchFastCommand(s);
+      return r && r.type === "device" ? `${r.action}:${r.value}` : null;
+    };
+    expect(a("brightness 50 karo")).toBe("brightness:50");
+    expect(a("brightness full")).toBe("brightness:100");
+    expect(a("brightness auto")).toBe("brightness:-1");
+    expect(a("dnd on karo")).toBe("dnd_on:0");
+    expect(a("phone lock karo")).toBe("lock_screen:0");
+  });
+});

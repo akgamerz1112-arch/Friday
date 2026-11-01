@@ -275,6 +275,15 @@ export function createBrain(opts: BrainOptions = {}): Brain {
         await memory.appendTurn({ role: "assistant", content: fast.say });
         return { reply: fast.say, toolResults: [] };
       }
+      if (fast?.type === "app") {
+        const r = await standalone({ type: "open_app", target: fast.name }, deps, text);
+        if (r.ok) {
+          await memory.appendTurn({ role: "user", content: text, display });
+          await memory.appendTurn({ role: "assistant", content: fast.say });
+          return { reply: fast.say, toolResults: [r], status: r.result?.status };
+        }
+        // Not installed / not found: let the model handle the sentence normally.
+      }
       if (fast?.type === "device") {
         const r = await standalone({ type: "device", do: fast.action, value: fast.value }, deps, text);
         const reply = r.ok ? fast.say : r.summary;

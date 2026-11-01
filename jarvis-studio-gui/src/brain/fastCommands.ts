@@ -9,6 +9,8 @@ export type PersonaName = "friday" | "jarvis";
 export type FastCommand =
   | { type: "device"; action: string; value: number; say: string }
   | { type: "say"; say: string }
+  /** "YouTube kholo": open an installed app with no model call (not found -> the normal model path answers). */
+  | { type: "app"; name: string; say: string }
   /** Rename: Friday = the female FRIDAY, Jarvis = the male JARVIS (voice, wording and wake name). */
   | { type: "persona"; name: PersonaName; say: string };
 
@@ -58,6 +60,61 @@ export function matchPersona(raw: string): PersonaName | null {
     if (m) return /jarvis|जार|जर्/.test(m[1]) ? "jarvis" : "friday";
   }
   return null;
+}
+
+/** Spoken name (Hindi, Hinglish, English) -> the text an installed app's label contains + how to say it. */
+const APP_ALIASES: Array<[RegExp, string, string]> = [
+  [/^(youtube|you tube|यू ?ट्यूब|युट्यूब|यूट्यूब)$/, "youtube", "YouTube"],
+  [/^(whatsapp|whats app|व्हाट्स ?ऐप|व्हाट्स ?एप|वॉट्स ?ऐप|वाट्स ?ऐप|व्हाट्सअप)$/, "whatsapp", "WhatsApp"],
+  [/^(instagram|insta|इंस्टा ?ग्राम|इंस्टा)$/, "instagram", "Instagram"],
+  [/^(chrome|क्रोम)$/, "chrome", "Chrome"],
+  [/^(camera|कैमरा)$/, "camera", "कैमरा"],
+  [/^(gallery|गैलरी)$/, "gallery", "गैलरी"],
+  [/^(maps|google maps|मैप्स|गूगल मैप्स|नक्शा)$/, "maps", "Maps"],
+  [/^(gmail|जीमेल)$/, "gmail", "Gmail"],
+  [/^(facebook|फेसबुक)$/, "facebook", "Facebook"],
+  [/^(snapchat|स्नैपचैट)$/, "snapchat", "Snapchat"],
+  [/^(telegram|टेलीग्राम)$/, "telegram", "Telegram"],
+  [/^(spotify|स्पॉटिफाई|स्पोटिफाई)$/, "spotify", "Spotify"],
+  [/^(phonepe|phone pe|फोन ?पे)$/, "phonepe", "PhonePe"],
+  [/^(settings|setting|सेटिंग्स|सेटिंग)$/, "settings", "सेटिंग्स"],
+  [/^(calculator|कैलकुलेटर)$/, "calculator", "कैलकुलेटर"],
+  [/^(clock|घड़ी|क्लॉक)$/, "clock", "घड़ी"],
+  [/^(messages|message|मैसेज|मैसेजेस)$/, "messages", "मैसेज"],
+  [/^(play store|प्ले ?स्टोर)$/, "play store", "Play Store"],
+  [/^(files|my files|फाइल्स|फ़ाइल्स)$/, "my files", "फाइल्स"],
+];
+const NOT_AN_APP = /^(it|this|that|ye|yeh|wo|woh|kuch|something|app|ऐप|website|site|link|google search|search|mujhe|mera|mere|please|ये|वो|कुछ)$/i;
+
+export function resolveAppName(spoken: string): { match: string; display: string } | null {
+  const s = spoken
+    .toLowerCase()
+    .replace(/(^|\s)(?:the|app|my|mera|mere|ऐप|एप)(?=\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s || NOT_AN_APP.test(s) || s.split(" ").length > 3) return null;
+  for (const [re, match, display] of APP_ALIASES) if (re.test(s)) return { match, display };
+  // An unknown Latin name ("Zomato", "Paytm") is matched against the installed labels as is.
+  if (/^[a-z0-9][a-z0-9 .&+-]{1,23}$/.test(s) && !/\.(com|in|org|net)\b/.test(s))
+    return { match: s, display: s.replace(/\b\w/g, (c) => c.toUpperCase()) };
+  return null;
+}
+
+const OPEN_BEFORE = /^(?:open|launch|start|run|kholo|khol|ओपन|खोलो)\s+(.+)$/;
+const OPEN_AFTER =
+  /^(.+?)\s+(?:kholo|khol do|khol de|kholdo|kholiye|khol|open karo|open kar do|open kar|open|chalao|chalu karo|launch karo|start karo|ओपन करो|ओपन कर दो|ओपन|खोलो|खोल दो|खोल दीजिए|खोलिए|चलाओ|चालू करो)$/;
+
+export function matchOpenApp(t: string): FastCommand | null {
+  const body = t.replace(/\s+(?:karo|kar do|kardo|please|करो|कर दो)$/, "");
+  const m = OPEN_AFTER.exec(t) ?? OPEN_BEFORE.exec(body);
+  if (!m) return null;
+  const app = resolveAppName(m[1]);
+  if (!app) return null;
+  return {
+    type: "app",
+    name: app.match,
+    say: `${app.display} खोल दिया।`,
+  };
 }
 
 export function matchFastCommand(raw: string, now: Date = new Date()): FastCommand | null {
@@ -113,5 +170,30 @@ export function matchFastCommand(raw: string, now: Date = new Date()): FastComma
     if (/(pause|roko|ruk|रोको|रुको)/i.test(t)) return { type: "device", action: "media_pause", value: 0, say: "रोक दिया।" };
     if (/(resume|play|chalao|chala|चलाओ|चला)/i.test(t)) return { type: "device", action: "media_play", value: 0, say: "चला दिया।" };
   }
-  return null;
+
+  // Brightness: a number, "full", "auto", or a clear up/down.
+  if (/(brightness|ब्राइटनेस)/i.test(t)) {
+    const n = /(\d{1,3})/.exec(t);
+    if (n) {
+      const v = Math.min(100, Number(n[1]));
+      return { type: "device", action: "brightness", value: v, say: `ब्राइटनेस ${v} प्रतिशत कर दी।` };
+    }
+    if (/(full|max|poori|पूरी|फुल)/i.test(t)) return { type: "device", action: "brightness", value: 100, say: "ब्राइटनेस पूरी कर दी।" };
+    if (/\bauto\b|ऑटो/i.test(t)) return { type: "device", action: "brightness", value: -1, say: "ब्राइटनेस ऑटो कर दी।" };
+    if (UP.test(t)) return { type: "device", action: "brightness", value: 80, say: "ब्राइटनेस बढ़ा दी।" };
+    if (DOWN.test(t)) return { type: "device", action: "brightness", value: 25, say: "ब्राइटनेस कम कर दी।" };
+    return null;
+  }
+  if (/(\bdnd\b|do not disturb|डू नॉट डिस्टर्ब)/i.test(t)) {
+    if (OFF.test(t)) return { type: "device", action: "dnd_off", value: 0, say: "डू नॉट डिस्टर्ब बंद कर दिया।" };
+    if (ON.test(t)) return { type: "device", action: "dnd_on", value: 0, say: "डू नॉट डिस्टर्ब चालू कर दिया।" };
+    return null;
+  }
+  if (/(sound on|ring mode|normal mode|रिंग मोड|नॉर्मल मोड|साउंड ऑन)/i.test(t))
+    return { type: "device", action: "ringer_normal", value: 0, say: "फ़ोन नॉर्मल मोड पर कर दिया।" };
+  if (/^(phone|screen|फ़ोन|फोन|स्क्रीन) ?(lock|लॉक)( karo| kar do| करो| कर दो)?$/i.test(t))
+    return { type: "device", action: "lock_screen", value: 0, say: "लॉक कर दिया।" };
+
+  // "YouTube kholo": last, so the torch / music / volume words above win.
+  return matchOpenApp(t);
 }

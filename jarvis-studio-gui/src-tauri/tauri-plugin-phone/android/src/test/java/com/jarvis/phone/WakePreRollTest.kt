@@ -33,12 +33,12 @@ class WakePreRollTest {
     @Test
     fun `one breath - a command right after the wake is kept, from its first word`() {
         // "Hey Jarvis open YouTube": the tail of "Jarvis", then the command at once.
-        val (end, c) = run("LLLLLLLLLL" + ".".repeat(20), seed = ShortArray(48_000) { 7 })
+        val (end, c) = run("L".repeat(30) + ".".repeat(20), seed = ShortArray(48_000) { 7 })
         assertTrue(c.speech)
-        assertEquals(9 + 13, end) // 1 s (13 chunks) after the last loud one
+        assertEquals(29 + 13, end) // 1 s (13 chunks) after the last loud one
         val audio = c.audio()
         assertEquals(7, audio[0].toInt()) // the pre-roll leads the clip
-        assertEquals(48_000 + 23 * 1280, audio.size)
+        assertEquals(48_000 + 43 * 1280, audio.size)
         assertEquals(0, audio[48_000].toInt()) // then every chunk after the wake, none lost
     }
 
@@ -46,11 +46,11 @@ class WakePreRollTest {
     fun `quick mode - a shorter pause ends the command sooner`() {
         val c = CommandCapture(ShortArray(0), 16_000, 650L)
         var end = -1
-        ("LLLLLLLLLL" + ".".repeat(20)).forEachIndexed { i, ch ->
+        ("L".repeat(30) + ".".repeat(20)).forEachIndexed { i, ch ->
             if (end < 0 && c.add(ShortArray(1280), ch == 'L')) end = i
         }
         assertTrue(c.speech)
-        assertEquals(9 + 9, end) // 0.72 s after the last loud chunk, vs 13 chunks (1.04 s) normally
+        assertEquals(29 + 9, end) // 0.72 s after the last loud chunk, vs 13 chunks (1.04 s) normally
     }
 
     @Test
@@ -59,6 +59,18 @@ class WakePreRollTest {
         val (end, c) = run("LL" + ".".repeat(18) + "LLLLLL" + ".".repeat(20))
         assertTrue(c.speech)
         assertEquals(25 + 13, end)
+    }
+
+    @Test
+    fun `hey jarvis, a short think, then the question - the pause does not end it early`() {
+        // wake tail (0.4 s), 0.8 s of thinking, the question, then a pause.
+        val c = CommandCapture(ShortArray(0), 16_000, 750L)
+        var end = -1
+        ("LLLLL" + ".".repeat(10) + "LLLLLL" + ".".repeat(20)).forEachIndexed { i, ch ->
+            if (end < 0 && c.add(ShortArray(1280), ch == 'L')) end = i
+        }
+        assertTrue(c.speech)
+        assertTrue("ended at chunk $end, before the question finished", end > 20)
     }
 
     @Test

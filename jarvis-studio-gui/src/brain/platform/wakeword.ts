@@ -12,6 +12,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { transcribe, isNoiseTranscript } from "./stt";
+import { noteHeard } from "../latency";
 import { inTauri } from "../tools/httpClient";
 import { base64ToBytes } from "../tools/base64";
 import { acceptedNames, lastWakeEnd, type WakeName } from "./wakePhrase";
@@ -307,7 +308,9 @@ export class WakeWordListener {
         // The hint is the name alone, never the command prompt's "Hey JARVIS": Whisper can
         // echo its prompt, and an echo of "Jarvis" has no greeting, so it can't pass the
         // wake check on its own.
+        const sttStart = performance.now();
         text = await this.transcribeBlob(wav, { prompt: "Friday, Jarvis" });
+        noteHeard(Math.round(performance.now() - sttStart));
       } catch (e) {
         this.opts.onError?.((e as Error)?.message || String(e));
         return;

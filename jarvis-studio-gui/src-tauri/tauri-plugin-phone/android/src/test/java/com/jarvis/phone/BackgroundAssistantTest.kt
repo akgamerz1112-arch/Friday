@@ -23,6 +23,9 @@ class BackgroundAssistantTest {
         assertNotNull(NativeFast.match("volume badhao", now))
         assertNotNull(NativeFast.match("battery kitni hai", now))
         assertNull(NativeFast.match("flashlight", now))
+        assertNotNull(NativeFast.match("youtube kholo", now))
+        assertNotNull(NativeFast.match("यूट्यूब खोलो", now))
+        assertNull(NativeFast.match("website kholo", now))
         assertNull(NativeFast.match("kal subah volume badha dena aur mujhe yaad dilana ki mummy ko call karna hai", now))
     }
 

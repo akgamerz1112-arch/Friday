@@ -664,6 +664,9 @@ pub struct CaptureScreenshotResponse {
 pub struct FileOpRequest {
     pub uri: String,
     pub path: String,
+    /// Return the file's raw bytes as base64 instead of UTF-8 text (Office documents).
+    #[serde(default)]
+    pub base64: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

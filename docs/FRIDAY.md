@@ -192,3 +192,39 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
 - Say it with the app open: the old path should behave as before and the phone voice should NOT also answer.
 - Say "torch chalu karo" without the wake word in the background: nothing should happen.
 
+## Phase 13 — command cut off before the question
+- **Symptom:** "Hey Jarvis" is heard (beep) but recording ends before the question. **Cause:** the wake word's own tail counted as
+  speech, so a short pause (750 ms) right after "Hey Jarvis" ended the clip. **Fix:** `CommandCapture.MIN_END_MS` — a pause cannot
+  end the command until 2.2 s after the wake; quick-mode pause 750 -> 900 ms. Short commands end about as fast as before.
+- If "Hey Jarvis" is sometimes not heard at all: Settings > Voice > Wake word sensitivity > High.
+- Checks: "Hey Jarvis" ... 1 s pause ... "torch chalu karo" now completes; a fast "Hey Jarvis torch on" still works.
+
+## Phase 14 — instant "open app" and more switches
+- **"Jarvis, YouTube kholo"** now opens the app with no model call (`matchOpenApp` in `fastCommands.ts`; `open_app` -> existing `launchApp`).
+  Hindi/Hinglish/English names for common apps are in `APP_ALIASES` (mirror in `NativeFast.APPS`, Kotlin, for the background path);
+  an unknown Latin name ("Zomato") is matched against the installed labels. Add an app: one line in both lists.
+- Also instant: brightness (a number / full / auto / up / down), Do Not Disturb on/off, normal ringer, lock screen.
+- **Background:** it works there too, but Android lets a background service start an app only when "Display over other apps" is allowed for
+  FRIDAY (Settings > Apps > FRIDAY > Appear on top). Without it the open is silently blocked.
+- Delay you will still feel: record (ends 0.9 s after you stop) + Whisper over the network (~0.5-1 s). Not verified on the device.
+
+## Phase 15 — measuring speed (and what is NOT streaming yet)
+- `brain/latency.ts` times every voice turn on the phone: **hearing** (clip -> transcript), **thinking** (question -> reply text),
+  **speaking** (reply -> speech done, includes the time the words take), **whole turn**. Settings > System > *Voice speed* shows the
+  median of the last 30 turns. Real numbers only; nothing is estimated. Read them first to see which part is slow.
+- From the code (not yet measured): the brain waits for the **whole** model reply (`brain/providers` don't stream) and only then starts
+  TTS, so "thinking" is probably the biggest wait. Sarvam already splits the reply into sentences and plays the first while it fetches the
+  rest. Instant commands (torch, open app, volume...) skip the model entirely.
+- **Next speed step (after real numbers):** stream the model reply (SSE in `openaiCompat.ts`), cut at sentence ends and hand each sentence
+  to `webSpeechTTS.speak` as it arrives, with barge-in cancelling both. Streaming and barge-in are **not implemented**.
+
+
+## Phase 16 — document intelligence, step 1 (see docs/FUTURE_ROADMAP.md)
+- `read_file` now reads **Word (.docx), Excel (.xlsx) and PowerPoint (.pptx)** from the granted folder
+  (`src/brain/documents/extract.ts`, no new libraries). PDF and the old .doc/.xls/.ppt formats get a clear
+  "not supported" message instead of garbage.
+- Native change: optional `base64` flag on the existing `read_file` command (Rust `FileOpRequest`, Kotlin `FileOpArgs`,
+  12 MB cap for that mode; plain text keeps its 200 KB cap). No new command name.
+- Tested here: 10 unit cases plus real files made with python-docx/openpyxl/python-pptx (run in Node).
+  **Not tested here:** the Kotlin/Rust build, vitest in CI, and reading a file on the phone.
+- Device check: Settings ▸ Storage & Privacy → grant a folder with a .docx/.xlsx/.pptx → "<file> padho".

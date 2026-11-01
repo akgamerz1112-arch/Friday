@@ -211,7 +211,47 @@ internal object NativeFast {
                 am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, key.first)); true
             }
         }
-        return null
+        return openApp(t)
+    }
+
+    // Spoken name -> text an installed app's label contains, and how to say it (mirror of fastCommands.ts).
+    private val APPS = listOf(
+        Regex("^(youtube|you tube|यू ?ट्यूब|युट्यूब|यूट्यूब)$") to ("youtube" to "YouTube"),
+        Regex("^(whatsapp|whats app|व्हाट्स ?ऐप|व्हाट्स ?एप|वॉट्स ?ऐप|वाट्स ?ऐप|व्हाट्सअप)$") to ("whatsapp" to "WhatsApp"),
+        Regex("^(instagram|insta|इंस्टा ?ग्राम|इंस्टा)$") to ("instagram" to "Instagram"),
+        Regex("^(chrome|क्रोम)$") to ("chrome" to "Chrome"),
+        Regex("^(camera|कैमरा)$") to ("camera" to "कैमरा"),
+        Regex("^(gallery|गैलरी)$") to ("gallery" to "गैलरी"),
+        Regex("^(maps|google maps|मैप्स|गूगल मैप्स|नक्शा)$") to ("maps" to "Maps"),
+        Regex("^(gmail|जीमेल)$") to ("gmail" to "Gmail"),
+        Regex("^(facebook|फेसबुक)$") to ("facebook" to "Facebook"),
+        Regex("^(telegram|टेलीग्राम)$") to ("telegram" to "Telegram"),
+        Regex("^(spotify|स्पॉटिफाई|स्पोटिफाई)$") to ("spotify" to "Spotify"),
+        Regex("^(phonepe|phone pe|फोन ?पे)$") to ("phonepe" to "PhonePe"),
+        Regex("^(settings|setting|सेटिंग्स|सेटिंग)$") to ("settings" to "सेटिंग्स"),
+        Regex("^(calculator|कैलकुलेटर)$") to ("calculator" to "कैलकुलेटर"),
+        Regex("^(play store|प्ले ?स्टोर)$") to ("play store" to "Play Store"),
+    )
+    private val NOT_APP = Regex("^(it|this|that|ye|yeh|wo|woh|kuch|something|app|website|site|link|google search|search|please|ये|वो|कुछ)$")
+    private val OPEN_AFTER = Regex(
+        "^(.+?)\\s+(?:kholo|khol do|khol de|kholdo|kholiye|khol|open karo|open kar do|open kar|open|chalao|chalu karo|launch karo|start karo|ओपन करो|ओपन कर दो|ओपन|खोलो|खोल दो|खोल दीजिए|खोलिए|चलाओ|चालू करो)$",
+    )
+    private val OPEN_BEFORE = Regex("^(?:open|launch|start|run|kholo|khol|ओपन|खोलो)\\s+(.+)$")
+
+    internal fun openApp(t: String): Cmd? {
+        val body = t.replace(Regex("\\s+(?:karo|kar do|kardo|please|करो|कर दो)$"), "")
+        val spoken = (OPEN_AFTER.find(t) ?: OPEN_BEFORE.find(body))?.groupValues?.get(1) ?: return null
+        val s = spoken.replace(Regex("(^|\\s)(?:the|app|my|mera|mere|ऐप|एप)(?=\\s|$)"), " ").replace(Regex("\\s+"), " ").trim()
+        if (s.isEmpty() || NOT_APP.matches(s) || s.split(" ").size > 3) return null
+        val hit = APPS.firstOrNull { it.first.matches(s) }?.second
+            ?: if (Regex("^[a-z0-9][a-z0-9 .&+-]{1,23}$").matches(s) && !Regex("\\.(com|in|org|net)\\b").containsMatchIn(s))
+                s to s.replaceFirstChar { it.uppercase() } else return null
+        return Cmd("") { ctx ->
+            // From the background Android only allows this with "Display over other apps" granted.
+            val ok = launchApp(ctx, hit.first)
+            CallAnnouncer.speak(ctx, if (ok) "${hit.second} खोल दिया।" else "${hit.second} नहीं मिला।")
+            true
+        }
     }
 
     private fun batterySentence(ctx: Context): String {

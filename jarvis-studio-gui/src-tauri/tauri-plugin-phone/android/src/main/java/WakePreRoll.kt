@@ -51,6 +51,10 @@ class CommandCapture(
          *  single blips added up to "speech" and kept a silent wake recording for 6–8 s). */
         const val MIN_RUN_CHUNKS = 2
         const val SILENCE_MS = 1_000L
+        /** A pause can't end the command before this long after the wake. People say
+         *  "Hey Jarvis", think for a second, then ask: the wake word's own tail counted as
+         *  speech and a 750 ms pause ended the clip before the question (reported live). */
+        const val MIN_END_MS = 2_200L
         const val NO_SPEECH_MS = 4_000L
         const val MAX_MS = 10_000L
     }
@@ -78,7 +82,7 @@ class CommandCapture(
             speech = true
         }
         return ms >= MAX_MS || size == buf.size ||
-            if (speech) ms - lastLoudMs >= silenceMs else ms >= NO_SPEECH_MS
+            if (speech) ms - lastLoudMs >= silenceMs && ms >= MIN_END_MS else ms >= NO_SPEECH_MS
     }
 
     fun audio(): ShortArray = buf.copyOf(size)
