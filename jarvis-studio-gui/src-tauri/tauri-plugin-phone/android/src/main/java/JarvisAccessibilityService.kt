@@ -220,7 +220,7 @@ class JarvisAccessibilityService : AccessibilityService() {
 
     private fun onStopOverlay(x: Int, y: Int): ActionReceipt? =
         if (stopOverlayRect()?.contains(x, y) == true) {
-            ActionReceipt(false, "That spot is JARVIS's own STOP button, not part of the app — never tap it.", "policy_blocked", screenGeneration.get())
+            ActionReceipt(false, "That spot is FRIDAY's own STOP button, not part of the app — never tap it.", "policy_blocked", screenGeneration.get())
         } else null
 
     fun hideStopOverlay() {

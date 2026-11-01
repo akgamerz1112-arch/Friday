@@ -52,11 +52,11 @@ function ClarifyPrompt({ request, onRespond }) {
   const submit = () => onRespond(request.id, answer.trim(), request.taskId);
   return (
     <div className="perm-overlay">
-      <div className="perm-dialog" role="alertdialog" aria-label="JARVIS needs your input">
+      <div className="perm-dialog" role="alertdialog" aria-label="FRIDAY needs your input">
         <div className="perm-icon">
           <Icon name="help" size={26} />
         </div>
-        <div className="perm-kicker">JARVIS needs an answer</div>
+        <div className="perm-kicker">FRIDAY needs an answer</div>
         <div className="perm-desc">{request.question}</div>
         <input
           className="clarify-input"
@@ -552,13 +552,13 @@ export default function App() {
         },
         { keywords: "chat reset clear fresh" },
       ),
-      cmd("memory", "Menus", "Memory — what JARVIS knows", "memory", () => setMemoryOpen(true), {
+      cmd("memory", "Menus", "Memory — what FRIDAY knows", "memory", () => setMemoryOpen(true), {
         keywords: "facts playbooks remember forget saved chats",
       }),
       cmd("skills", "Menus", "Skills", "skills", () => setSkillsOpen(true), {
         keywords: "qr clipboard tools",
       }),
-      cmd("caps", "Menus", "What can JARVIS do?", "caps", () => setCapsOpen(true), {
+      cmd("caps", "Menus", "What can FRIDAY do?", "caps", () => setCapsOpen(true), {
         keywords: "capabilities help features",
       }),
       cmd("activity", "Menus", "Tasks", "activity", () => setActivityOpen(true), {
@@ -608,13 +608,13 @@ export default function App() {
         cmd(
           `agent-${a.id}`,
           "Assistant",
-          a.id === "auto" ? "Agents: let JARVIS pick (Auto)" : `Agents: use the ${a.name} agent`,
+          a.id === "auto" ? "Agents: let FRIDAY pick (Auto)" : `Agents: use the ${a.name} agent`,
           "route",
           () => {
             pickAgent(a.id);
             notify(
               a.id === "auto"
-                ? "Auto: JARVIS picks the agents"
+                ? "Auto: FRIDAY picks the agents"
                 : `${agentById(a.id).name} agent: your requests go to it`,
             );
           },
@@ -633,7 +633,7 @@ export default function App() {
       cmd(
         "mute",
         "Voice",
-        muted ? "Unmute JARVIS" : "Mute JARVIS (text only)",
+        muted ? "Unmute FRIDAY" : "Mute FRIDAY (text only)",
         muted ? "volume" : "mute",
         () => setMute(!muted),
         { keywords: "sound silence voice", state: muted ? "Muted" : null },
@@ -731,8 +731,8 @@ export default function App() {
         {/* Persistent mute toggle: keeps speech off (text still shows) until untoggled */}
         <button
           className={`hud-fixed-btn ${muted ? "hud-fixed-btn--muted" : ""}`}
-          aria-label={muted ? "Unmute JARVIS" : "Mute JARVIS (text only)"}
-          title={muted ? "Muted: replies show as text. Tap to unmute" : "Mute JARVIS (text only)"}
+          aria-label={muted ? "Unmute FRIDAY" : "Mute FRIDAY (text only)"}
+          title={muted ? "Muted: replies show as text. Tap to unmute" : "Mute FRIDAY (text only)"}
           aria-pressed={muted}
           onClick={() => setMute(!muted)}
         >
@@ -760,11 +760,11 @@ export default function App() {
         {browserState.available && (
           <button
             className={`hud-fixed-btn ${browserState.open ? "hud-fixed-btn--armed" : ""}`}
-            aria-label="JARVIS's web browser"
+            aria-label="FRIDAY's web browser"
             title={
               browserState.open
-                ? "JARVIS's browser is open — tap to close it"
-                : "Open JARVIS's web browser"
+                ? "FRIDAY's browser is open — tap to close it"
+                : "Open FRIDAY's web browser"
             }
             aria-pressed={browserState.open}
             onClick={() => setBrowserOpen(!browserState.open)}
@@ -908,7 +908,7 @@ export default function App() {
           {controlState.armed && (
             <div className="hud-armed-banner hud-armed-banner--control">
               <span className="hud-armed-dot" />
-              <span>⌨ JARVIS IS CONTROLLING YOUR MOUSE &amp; KEYBOARD</span>
+              <span>⌨ FRIDAY IS CONTROLLING YOUR MOUSE &amp; KEYBOARD</span>
               <button className="hud-armed-disarm hud-armed-disarm--stop" onClick={stopControl}>
                 STOP
               </button>
@@ -938,7 +938,7 @@ export default function App() {
           desktop has an always-visible "controlling" overlay + STOP for this;
           the phone had neither, so a runaway/undesired task had no interrupt.
           Stays up through `status === "speaking"` too, not just the task's own
-          running flag — JARVIS keeps talking (reading out what it did) after the
+          running flag — FRIDAY keeps talking (reading out what it did) after the
           task itself finishes, and the STOP control disappearing mid-sentence
           left no way to cut that off. */}
       {IS_MOBILE && (anyTaskActive || status === "speaking") && (
@@ -1109,7 +1109,7 @@ export default function App() {
             </div>
             <div className="perm-kicker">Needs your approval</div>
             <div className="perm-desc">
-              JARVIS wants to <strong>{permissionRequest.description}</strong>.
+              FRIDAY wants to <strong>{permissionRequest.description}</strong>.
             </div>
             {/* The v2 protocol accepts an exact signed approval from the task's
                 own source device (aura main.py handle_task_approval), verified
@@ -1155,7 +1155,7 @@ export default function App() {
               {phoneApproval.risk === "R3" ? "Critical action" : "Confirm this action"}
             </div>
             <div className="perm-desc">
-              JARVIS wants to <strong>{phoneApproval.reason}</strong>.
+              FRIDAY wants to <strong>{phoneApproval.reason}</strong>.
             </div>
             <div className="perm-sub">
               {phoneApproval.risk === "R3"

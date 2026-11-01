@@ -92,3 +92,14 @@ describe("model policy", () => {
     );
   });
 });
+
+describe("addressing FRIDAY by name", () => {
+  it("strips 'hey friday' or 'friday,' but never the weekday", () => {
+    const weather = "what's the weather like";
+    expect(isDirectWeatherRequest(`Hey Friday, ${weather}`)).toBe(true);
+    expect(isDirectWeatherRequest(`Friday, ${weather}`)).toBe(true);
+    expect(isDirectWeatherRequest(`Jarvis, ${weather}`)).toBe(true);
+    // "Friday weather" is a question about the day, not someone being addressed.
+    expect(isDirectWeatherRequest("Friday weather")).toBe(false);
+  });
+});

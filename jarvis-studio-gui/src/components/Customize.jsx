@@ -225,7 +225,7 @@ export default function Customize({ screen, onClose, onPatch }) {
       });
       setError("");
     } catch {
-      setError("That file isn't a JARVIS theme.");
+      setError("That file isn't a FRIDAY theme.");
     }
   };
 
@@ -252,7 +252,7 @@ export default function Customize({ screen, onClose, onPatch }) {
     >
       <div className="cz-body">
         <p className="cz-note cz-lede">
-          Changes apply live. You can also just tell JARVIS — “make the screen amber”, or “switch to
+          Changes apply live. You can also just tell FRIDAY — “make the screen amber”, or “switch to
           Iron Man mode”.
         </p>
 

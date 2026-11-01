@@ -333,6 +333,40 @@ export function whatsappConfig(
   return phoneJson("whatsapp_config", { enabled, allowed });
 }
 
+export interface CallAnnounceState {
+  ok?: boolean;
+  /** Announcing is switched on. */
+  on?: boolean;
+  /** Notification access is granted (the announcer reads the ringing-call notification). */
+  access?: boolean;
+  silent?: boolean;
+  dnd?: boolean;
+  headset?: boolean;
+}
+
+/** Incoming-call announcements (CallAnnouncer.kt). The native side keeps the settings. */
+export function callAnnounceConfig(c: {
+  on: boolean;
+  silent: boolean;
+  dnd: boolean;
+  headset: boolean;
+}): Promise<CallAnnounceState | null> {
+  return phoneJson("device_action", {
+    ...DEVICE_KEYS,
+    action: "call_announce_config",
+    query: JSON.stringify(c),
+  });
+}
+
+export function callAnnounceStatus(): Promise<CallAnnounceState | null> {
+  return phoneJson("device_action", { ...DEVICE_KEYS, action: "call_announce_status" });
+}
+
+/** Is the accessibility service (phone control) on? Null off-device. */
+export function accessibilityStatus(): Promise<{ enabled?: boolean } | null> {
+  return phoneJson("is_enabled", {});
+}
+
 /** Commands queued after `since`. Null off-device. */
 export function pollWhatsapp(since: number): Promise<WhatsAppPoll | null> {
   return phoneJson("poll_whatsapp", { since });

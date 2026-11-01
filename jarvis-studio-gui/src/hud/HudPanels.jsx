@@ -51,7 +51,7 @@ export function SkillsOverlay({
     <Sheet
       open={open}
       title="Skills"
-      sub="Quick tools JARVIS can run for you right now"
+      sub="Quick tools FRIDAY can run for you right now"
       onClose={onClose}
     >
       <div className="sp-sheet">
@@ -114,7 +114,7 @@ export function SkillsOverlay({
               ))}
               <div className="sp-field">
                 <span className="sp-desc">
-                  Runs until you switch it off. Saved to your Jarvis storage folder.
+                  Runs until you switch it off. Saved to your Friday storage folder.
                 </span>
               </div>
             </Group>
@@ -144,12 +144,12 @@ export function SkillsOverlay({
                 </div>
               </Field>
             </Group>
-            <Group title="Folders JARVIS can read">
+            <Group title="Folders FRIDAY can read">
               <Field hint="It can list these and read files inside, asking you each time. It can never run, write, move or delete anything.">
                 <div className="dirlist">
                   {allowedDirs.length === 0 && (
                     <StateMessage variant="empty" icon="folder" title="No folders yet">
-                      Add one to let JARVIS read files from it.
+                      Add one to let FRIDAY read files from it.
                     </StateMessage>
                   )}
                   {allowedDirs.map((d) => (
@@ -378,7 +378,7 @@ export function CapabilitiesOverlay({ open, onClose, onTry }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search what JARVIS can do…"
+            placeholder="Search what FRIDAY can do…"
             aria-label="Search capabilities"
           />
         </label>
@@ -391,7 +391,7 @@ export function CapabilitiesOverlay({ open, onClose, onTry }) {
             {onTry && (
               <button type="button" className="btn btn--sm" onClick={() => onTry(query.trim())}>
                 <Icon name="send" size={13} />
-                Ask JARVIS anyway
+                Ask FRIDAY anyway
               </button>
             )}
           </div>
@@ -440,14 +440,14 @@ const MEM_KINDS = [
     kind: "fact",
     label: "About you",
     color: "var(--ac)",
-    note: "JARVIS reads these before every reply.",
+    note: "FRIDAY reads these before every reply.",
   },
   {
     key: "playbooks",
     kind: "playbook",
     label: "Playbooks",
     color: "#6ee7a8",
-    note: "Step-by-step recipes JARVIS learned for tasks. Not your routines: those are on the home screen. A playbook runs on its own only after three verified successes.",
+    note: "Step-by-step recipes FRIDAY learned for tasks. Not your routines: those are on the home screen. A playbook runs on its own only after three verified successes.",
   },
   {
     key: "conversations",
@@ -578,7 +578,7 @@ export function MemoryOverlay({
         <header className="memx-hd">
           <div className="memx-hd-txt">
             <span className="memx-kicker">MEMORY</span>
-            <h2 className="memx-title">{IS_MOBILE ? "Memory" : "What JARVIS knows"}</h2>
+            <h2 className="memx-title">{IS_MOBILE ? "Memory" : "What FRIDAY knows"}</h2>
             <p className="memx-loc">Kept on this phone and your paired PC.</p>
           </div>
           <div className="memx-hd-tools">
@@ -652,7 +652,7 @@ export function MemoryOverlay({
           <div className="memx-main" ref={mainRef}>
             {IS_MOBILE && (
               <p className="memx-lede">
-                What JARVIS knows. Facts and routines are shared with your paired PC, and forgetting
+                What FRIDAY knows. Facts and routines are shared with your paired PC, and forgetting
                 one there or here is permanent on both.
               </p>
             )}
@@ -667,7 +667,7 @@ export function MemoryOverlay({
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   aria-label="New fact"
-                  placeholder="Something JARVIS should always know — e.g. I'm vegetarian"
+                  placeholder="Something FRIDAY should always know — e.g. I'm vegetarian"
                   maxLength={300}
                 />
                 <button type="submit" disabled={!draft.trim()}>
@@ -722,7 +722,7 @@ export function MemoryOverlay({
               <p className="memx-empty">
                 {
                   {
-                    facts: "Nothing yet. Tell JARVIS “remember that…”, or add something above.",
+                    facts: "Nothing yet. Tell FRIDAY “remember that…”, or add something above.",
                     playbooks: "No playbooks. Teach one by saying “learn a playbook called…”.",
                     conversations:
                       "No saved chats. Starting a new chat saves the current one here.",
@@ -903,7 +903,7 @@ export function PowerOverlay({ open, onClose, runAction, d = {}, appControlOn })
           <ActionRow
             icon="hand"
             title="App control"
-            desc="Lets JARVIS tap and type in other apps. Turn on JARVIS in Accessibility."
+            desc="Lets FRIDAY tap and type in other apps. Turn on FRIDAY in Accessibility."
             readout={appControlOn == null ? undefined : appControlOn ? "On" : "Off"}
             tone={appControlOn ? "on" : "warn"}
             leaves
@@ -973,7 +973,7 @@ const ChatMessage = memo(function ChatMessage({ m, runAction, onCopy }) {
   const user = m.role === "user";
   return (
     <div className={`cv-msg cv-msg--${user ? "user" : "jarvis"}`}>
-      <span className="sp-sr">{user ? "You:" : "JARVIS:"}</span>
+      <span className="sp-sr">{user ? "You:" : "FRIDAY:"}</span>
       <div className="cv-bubble">
         {user ? (
           <>
@@ -1319,9 +1319,9 @@ export function ChatOverlay({
               placeholder={
                 agentMode && activeAgent !== "auto"
                   ? `Message the ${agentById(activeAgent).name} agent`
-                  : "Message JARVIS (@ picks an agent)"
+                  : "Message FRIDAY (@ picks an agent)"
               }
-              aria-label="Message JARVIS"
+              aria-label="Message FRIDAY"
             />
             {busy && onStop ? (
               <button
@@ -1380,7 +1380,7 @@ export function ChatOverlay({
         )}
         {status === "thinking" && (
           <div className="cv-msg cv-msg--jarvis">
-            <span className="sp-sr">JARVIS is thinking</span>
+            <span className="sp-sr">FRIDAY is thinking</span>
             <div className="cv-typing" aria-hidden="true">
               <i />
               <i />

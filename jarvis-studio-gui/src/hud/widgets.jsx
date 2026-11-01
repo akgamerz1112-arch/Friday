@@ -1,6 +1,6 @@
 /* widgets.jsx — the home screen's cards, in the desktop's card shell (its
    hud/widgets.jsx): each one collapses to a one-line summary in its header, and
-   JARVIS can expand/collapse them by voice too (App owns the open state). The phone
+   FRIDAY can expand/collapse them by voice too (App owns the open state). The phone
    fills them with what a phone can read: Device instead of System (Android hides
    CPU load), Battery instead of Power, network estimates, plus the phone's own
    Status and Routines cards. Customize ▸ Gauges swaps bars for rings. */
@@ -477,7 +477,7 @@ export function AgendaWidget({ items, open, onToggle, runAction }) {
       <div className="ag">
         {list.length === 0 && editing !== "new" && (
           <div className="wd-empty">
-            Nothing scheduled today. Ask JARVIS to remind you and it shows up here.
+            Nothing scheduled today. Ask FRIDAY to remind you and it shows up here.
           </div>
         )}
         {list.map((it, i) =>
@@ -774,7 +774,7 @@ export function LogWidget({ commands = [], onClear, open, onToggle }) {
     >
       <div className="log" ref={bodyRef}>
         {commands.length === 0 && (
-          <div className="wd-empty">Every action JARVIS takes for you shows up here.</div>
+          <div className="wd-empty">Every action FRIDAY takes for you shows up here.</div>
         )}
         {commands.slice(-40).map((c, i) => (
           <div key={i} className={`log-row${c.ok === false ? " is-err" : ""}`}>
@@ -991,7 +991,7 @@ function RoutineForm({ routine, onSaved, onCancel }) {
       />
       {home ? (
         <p className="rt-note">
-          When the phone joins your home Wi-Fi you get a notification; tap it and JARVIS runs this.
+          When the phone joins your home Wi-Fi you get a notification; tap it and FRIDAY runs this.
           Home is the Wi-Fi where your TV or PC answers.
         </p>
       ) : (
@@ -1163,7 +1163,7 @@ export function RoutinesWidget({ status, runAction, onSend }) {
           })}
           {editing === true && <RoutineForm onSaved={saved} onCancel={cancel} />}
           <p className="rt-note">
-            Run one by saying its name. At its time a timed one runs if JARVIS is open, and
+            Run one by saying its name. At its time a timed one runs if FRIDAY is open, and
             otherwise posts a notification: tap it to run.
           </p>
         </div>

@@ -7,8 +7,8 @@
 
 import { getJson } from "../tools/httpClient";
 
-export const RELEASES_URL = "https://github.com/AnaaySampat/jarvis/releases/latest";
-const LATEST_API = "https://api.github.com/repos/AnaaySampat/jarvis/releases/latest";
+export const RELEASES_URL = "https://github.com/akgamerz1112-arch/Friday/releases/latest";
+const LATEST_API = "https://api.github.com/repos/akgamerz1112-arch/Friday/releases/latest";
 const CHECKED_KEY = "jarvis.update.checkedAt";
 const DAY_MS = 24 * 60 * 60 * 1000;
 

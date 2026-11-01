@@ -51,7 +51,7 @@ object WhatsAppInbox {
 
     // ── Pure (JVM-tested) ──
 
-    private val NAME = Regex("""^\W*(?:(?:hey|hi|ok(?:ay)?|yo)\W+)?jarvis\b\W*""", RegexOption.IGNORE_CASE)
+    private val NAME = Regex("""^\W*(?:(?:(?:hey|hi|ok(?:ay)?|yo)\W+)?jarvis|(?:hey|hi|ok(?:ay)?|yo)\W+friday)\b\W*""", RegexOption.IGNORE_CASE)
 
     /** The command in a message that starts with JARVIS's name, without the name; null
      *  when it doesn't (not for JARVIS). The desktop's whatsapp_channel.addressed. */
@@ -167,8 +167,8 @@ object WhatsAppInbox {
         )
         val n = NotificationCompat.Builder(context, PhonePlugin.REMINDER_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("WhatsApp for JARVIS from ${c.sender}")
-            .setContentText("“${c.text}” — tap and JARVIS answers it.")
+            .setContentTitle("WhatsApp for FRIDAY from ${c.sender}")
+            .setContentText("“${c.text}” — tap and FRIDAY answers it.")
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)

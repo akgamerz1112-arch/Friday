@@ -29,7 +29,7 @@ export default function BootOverlay({ connected }) {
 
   return (
     <div className="setup-overlay">
-      <div className="setup-card" role="status" aria-label="Starting JARVIS">
+      <div className="setup-card" role="status" aria-label="Starting FRIDAY">
         <div className="setup-ring" aria-hidden="true">
           <span className="setup-ring-core" />
         </div>
@@ -41,7 +41,7 @@ export default function BootOverlay({ connected }) {
         </div>
         {secs >= 40 && (
           <div className="setup-foot">
-            Diagnostics: open <code>backend.log</code> in the JARVIS install folder (
+            Diagnostics: open <code>backend.log</code> in the FRIDAY install folder (
             <code>resources\jarvis-backend</code>).
           </div>
         )}

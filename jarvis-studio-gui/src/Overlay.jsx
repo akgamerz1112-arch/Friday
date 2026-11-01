@@ -247,7 +247,7 @@ export default function Overlay() {
           role="alertdialog"
           aria-label="Permission required"
         >
-          <div className="perm-card-kicker">⚠ JARVIS — AUTHORISATION REQUIRED</div>
+          <div className="perm-card-kicker">⚠ FRIDAY — AUTHORISATION REQUIRED</div>
           <div className="perm-card-desc">
             Wants to <strong>{permissionRequest.description}</strong>
           </div>
@@ -275,7 +275,7 @@ export default function Overlay() {
       <div
         className={`pill pill--${displayStatus}${busy ? " is-busy" : ""}`}
         style={{ color: accent, "--pill-rgb": accentRgb }}
-        title={busy ? displayStatus : "Tap to talk to JARVIS"}
+        title={busy ? displayStatus : "Tap to talk to FRIDAY"}
         onClick={busy ? undefined : handleListen}
       >
         <div className="pill-face">
@@ -285,7 +285,7 @@ export default function Overlay() {
 
           {displayStatus === "idle" && (
             <div className="pill-brand" aria-hidden="true">
-              JARVIS
+              FRIDAY
             </div>
           )}
 

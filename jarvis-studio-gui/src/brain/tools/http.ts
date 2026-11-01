@@ -415,7 +415,7 @@ async function geminiSearch(q: string, ctx: HttpToolCtx): Promise<ToolResult> {
   });
   const where = (ctx.location.pinnedPlace ?? (await ctx.location.coords())?.place ?? "").trim();
   const systemBits = [
-    "You are JARVIS. Answer the user's question directly and concisely from live web " +
+    "You are FRIDAY. Answer the user's question directly and concisely from live web " +
       "search results. State figures and names precisely; don't hedge.",
     `Today's date is ${today}. For 'best/top/latest/current' questions, prefer the MOST ` +
       "recent information and say which year or edition it reflects.",

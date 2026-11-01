@@ -66,7 +66,7 @@
         <service
             android:name="com.jarvis.phone.JarvisAccessibilityService"
             android:exported="false"
-            android:label="JARVIS"
+            android:label="FRIDAY"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -83,7 +83,7 @@
         <service
             android:name="com.jarvis.phone.JarvisNotificationListener"
             android:exported="false"
-            android:label="JARVIS"
+            android:label="FRIDAY"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

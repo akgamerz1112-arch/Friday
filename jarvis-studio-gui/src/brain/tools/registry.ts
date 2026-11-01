@@ -221,7 +221,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
         "name or number (a reply goes through the notification when one is showing, so " +
         "nothing opens). WhatsApp unless the user " +
         "says text/SMS or names another app. Call it straight away — don't ask in chat " +
-        "first: JARVIS shows its own on-screen confirmation with the exact person, number " +
+        "first: FRIDAY shows its own on-screen confirmation with the exact person, number " +
         "and text. Other apps (Telegram, Instagram…) only work as a reply to a " +
         "notification from that person.",
       {
@@ -234,7 +234,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
     fn(
       "call_contact",
       "Call a contact (by name) or a number: a phone call, or a WhatsApp voice/video " +
-        "call. Call it straight away: JARVIS shows its own on-screen confirmation first.",
+        "call. Call it straight away: FRIDAY shows its own on-screen confirmation first.",
       {
         to: str("Who: the contact's name, or a phone number."),
         app: str("'phone' (default) or 'whatsapp'.", ["phone", "whatsapp"]),
@@ -282,7 +282,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
     ),
     fn(
       "open_saved_file",
-      "Open a file JARVIS saved (recording, screenshot, QR…).",
+      "Open a file FRIDAY saved (recording, screenshot, QR…).",
       { name: str("Which saved file.") },
       ["name"],
     ),
@@ -402,7 +402,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
     ),
     fn(
       "manage_routine",
-      'Save, run, list or remove a named routine: steps JARVIS actually carries out ("my bedtime routine", "morning briefing"), optionally at a set time. Use this, not manage_playbook, when the steps should be DONE. For \'run\', do each returned step with your tools and report the real results.',
+      'Save, run, list or remove a named routine: steps FRIDAY actually carries out ("my bedtime routine", "morning briefing"), optionally at a set time. Use this, not manage_playbook, when the steps should be DONE. For \'run\', do each returned step with your tools and report the real results.',
       {
         action: str("What to do.", ["add", "run", "list", "remove"]),
         name: str("The routine's name."),
@@ -468,10 +468,10 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
     ),
     fn(
       "control_interface",
-      "Operate JARVIS's OWN app screen — open/close its panels and toggle its " +
-        "controls. Use THIS (not phone_task) for anything inside the JARVIS app.",
+      "Operate FRIDAY's OWN app screen — open/close its panels and toggle its " +
+        "controls. Use THIS (not phone_task) for anything inside the FRIDAY app.",
       {
-        action: str("What to do in the JARVIS interface.", [
+        action: str("What to do in the FRIDAY interface.", [
           "open_chat",
           "close_chat",
           "open_settings",
@@ -511,7 +511,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
           description:
             "true when the user wants to END UP in that app — media playing, a chat or " +
             "page left open to look at. Omit or false when they want something found, " +
-            "checked or done and reported back: JARVIS then returns to the front and " +
+            "checked or done and reported back: FRIDAY then returns to the front and " +
             "tells them the result.",
         },
       },
@@ -519,7 +519,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
     ),
     fn(
       "enable_phone_control",
-      "Open Android's Accessibility settings so the user can switch JARVIS on for " +
+      "Open Android's Accessibility settings so the user can switch FRIDAY on for " +
         "on-phone app control. Use when phone control is off or the user asks to enable it.",
     ),
 
@@ -531,7 +531,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
           fn(
             "pc_task",
             "Run a WHOLE task on the user's paired Windows PC (desktop apps or the " +
-              "web) via the remote JARVIS. Use for anything that belongs on the " +
+              "web) via the remote FRIDAY. Use for anything that belongs on the " +
               "computer rather than the phone. Give the complete task.",
             {
               goal: str("The whole task to run on the PC."),
@@ -834,7 +834,7 @@ export const TOOL_GROUPS: Record<string, { blurb: string; tools: string[]; cue: 
     cue: /\b(schedule|agenda|calendar|meeting|appointment|routines?|playbooks?|every (?:day|morning|evening|night|week|weekday)|each (?:day|morning)|daily|weekdays?|weekends?|teach|recipe|alarms|timers|cancel|delete|dismiss|(?:get|come|arrive|i'?m) home|whenever i)\b/i,
   },
   hud: {
-    blurb: "JARVIS's own screen: theme, background, panels, opening its views, clearing the chat",
+    blurb: "FRIDAY's own screen: theme, background, panels, opening its views, clearing the chat",
     tools: ["customize_screen", "control_interface", "clear_conversation"],
     cue: /\b(theme|colou?r|background|panels?|hud|layout|density|compact|interface|clear|reset|minimi[sz]e|expand|collapse|settings|memory|customi[sz]e|conversation mode|mute|unmute|new chat)\b/i,
   },

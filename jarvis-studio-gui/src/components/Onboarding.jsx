@@ -28,12 +28,12 @@ export default function Onboarding({ sysInfo, onSave }) {
 
   return (
     <div className="onboard-overlay">
-      <div className="onboard-panel" role="dialog" aria-label="Welcome to JARVIS">
+      <div className="onboard-panel" role="dialog" aria-label="Welcome to FRIDAY">
         <div className="onboard-hd">
           <span className="onboard-kicker">FIRST-RUN SETUP</span>
           <h2>Welcome to J.A.R.V.I.S</h2>
           <p className="onboard-sub">
-            Add at least one AI provider key and choose where JARVIS should keep the files it
+            Add at least one AI provider key and choose where FRIDAY should keep the files it
             creates. You can change all of this later in Settings.
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function Onboarding({ sysInfo, onSave }) {
             type="text"
             value={storageDir}
             onChange={(e) => setStorageDir(e.target.value)}
-            placeholder="C:\Users\you\Jarvis"
+            placeholder="C:\Users\you\Friday"
           />
           <span className="onboard-hint">
             Created if it doesn't exist, with images / recordings / documents subfolders.
@@ -90,7 +90,7 @@ export default function Onboarding({ sysInfo, onSave }) {
         )}
 
         <button className="onboard-go" disabled={!canFinish} onClick={finish}>
-          Start JARVIS →
+          Start FRIDAY →
         </button>
       </div>
     </div>

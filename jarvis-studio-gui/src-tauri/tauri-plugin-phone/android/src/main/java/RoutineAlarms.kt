@@ -225,7 +225,7 @@ object RoutineAlarms {
         val n = NotificationCompat.Builder(context, PhonePlugin.REMINDER_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText("Tap and JARVIS runs it.")
+            .setContentText("Tap and FRIDAY runs it.")
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)

@@ -19,7 +19,7 @@ export default function CommandPalette({ commands, onClose, onAsk }) {
   const results = useMemo(() => {
     const ranked = rankCommands(commands, q);
     return q
-      ? [...ranked, { id: "__ask", label: `Ask JARVIS: “${q}”`, group: "Chat", icon: "send" }]
+      ? [...ranked, { id: "__ask", label: `Ask FRIDAY: “${q}”`, group: "Chat", icon: "send" }]
       : ranked;
   }, [commands, q]);
 
@@ -69,7 +69,7 @@ export default function CommandPalette({ commands, onClose, onAsk }) {
             placeholder={
               IS_MOBILE
                 ? "Search menus and actions, or ask…"
-                : "Search menus, settings and actions — or ask JARVIS…"
+                : "Search menus, settings and actions — or ask FRIDAY…"
             }
             aria-label="Command"
             aria-controls="cmdk-list"
@@ -92,7 +92,7 @@ export default function CommandPalette({ commands, onClose, onAsk }) {
         </div>
         <div className="cmdk-list" id="cmdk-list" role="listbox" ref={listRef}>
           {results.length === 0 && (
-            <div className="cmdk-empty">Type to search, or to ask JARVIS anything.</div>
+            <div className="cmdk-empty">Type to search, or to ask FRIDAY anything.</div>
           )}
           {results.map((c, i) => {
             // Group headers only for the unfiltered list; a search is one ranked list.

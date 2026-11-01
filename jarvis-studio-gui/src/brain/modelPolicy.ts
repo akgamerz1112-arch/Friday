@@ -104,7 +104,7 @@ export function isImageGenerationRequest(text: string): boolean {
 export function isDirectWeatherRequest(text: string): boolean {
   const request = text
     .trim()
-    .replace(/^(?:hey\s+)?jarvis[,.:]?\s+/i, "")
+    .replace(/^(?:(?:hey\s+)?jarvis[,.:]?|hey\s+friday[,.:]?|friday[,:])\s+/i, "")
     .replace(/^please\s+/i, "")
     .replace(/[?!.,\s]+$/g, "");
   return /^(?:(?:what(?:'s|’s| is)|how(?:'s|’s| is))\s+(?:the\s+)?(?:current\s+|local\s+)?weather(?:\s+like)?|(?:(?:can|could|would)\s+you\s+)?(?:tell|show|give)(?:\s+me)?\s+(?:the\s+)?(?:current\s+|local\s+)?weather(?:\s+forecast)?|(?:current\s+|local\s+)?weather(?:\s+forecast)?)(?:\s+(?:here|outside|today|tomorrow|now|right now|for today|for tomorrow|in my area|near me)){0,3}$/i.test(
@@ -117,7 +117,7 @@ export function isDirectWeatherRequest(text: string): boolean {
 export function isDirectNotificationRequest(text: string): boolean {
   const request = text
     .trim()
-    .replace(/^(?:hey\s+)?jarvis[,.:]?\s+/i, "")
+    .replace(/^(?:(?:hey\s+)?jarvis[,.:]?|hey\s+friday[,.:]?|friday[,:])\s+/i, "")
     .replace(/[?!.,\s]+$/g, "");
   return /^(?:(?:can|could|would)\s+you\s+)?(?:please\s+)?(?:read|show|list|check)(?:\s+(?:out loud|aloud))?(?:\s+me)?\s+(?:(?:all(?:\s+of)?\s+)?(?:my|the)\s+)?(?:(?:new|unread|current)\s+)?notifications?(?:\s+(?:aloud|out loud|for me|please))?(?:\s+and\s+tell\s+me\s+(?:what\s+they\s+are|what\s+they\s+say|their\s+contents?))?$/i.test(
     request,

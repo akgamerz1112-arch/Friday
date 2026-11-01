@@ -19,6 +19,14 @@ class WhatsAppInboxTest {
     }
 
     @Test
+    fun fridayWorksOnlyWithAGreeting() {
+        assertEquals("set a timer for 10 minutes", WhatsAppInbox.addressed("Hey Friday, set a timer for 10 minutes"))
+        assertEquals("what's the weather?", WhatsAppInbox.addressed("ok friday what's the weather?"))
+        assertNull(WhatsAppInbox.addressed("Friday works for me, see you then"))   // the weekday
+        assertNull(WhatsAppInbox.addressed("Fridays are busy"))
+    }
+
+    @Test
     fun aListedNameMatchesExactlyAndANumberByItsDigits() {
         val allowed = WhatsAppInbox.parseAllowed("Asha, +91 98765 43210;\nDad")
         assertEquals(listOf("Asha", "+91 98765 43210", "Dad"), allowed)

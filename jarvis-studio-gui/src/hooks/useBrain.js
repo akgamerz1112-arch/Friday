@@ -50,6 +50,7 @@ import { RemoteScreen } from "../brain/remote/webrtcScreen";
 import { invoke } from "@tauri-apps/api/core";
 import { authenticate, checkStatus } from "@tauri-apps/plugin-biometric";
 import { webSpeechTTS } from "../brain/platform/webspeech";
+import { setSarvamSettings, onSarvamCooldown } from "../brain/platform/sarvamTts";
 import { MicRecorder, transcribe } from "../brain/platform/stt";
 import { syncWakeWord } from "../brain/platform/wakeword";
 import { syncStopOverlay } from "../brain/platform/stopOverlay";
@@ -436,7 +437,7 @@ export function useBrain() {
       .then((current) => checkForUpdate(current))
       .then((update) => {
         if (cancelled || !update) return;
-        pushWarning(`JARVIS ${update.version} is available.`, {
+        pushWarning(`FRIDAY ${update.version} is available.`, {
           label: "Get it",
           run: () => void invoke("plugin:phone|open_url", { url: update.url }).catch(() => {}),
         });
@@ -1454,6 +1455,11 @@ export function useBrain() {
       has_mistral_key: Boolean(stored.mistralKey),
       has_nvidia_key: Boolean(stored.nvidiaKey),
       has_tavily_key: Boolean(stored.tavilyKey),
+      has_sarvam_key: Boolean(stored.sarvamKey),
+      sarvam_tts: stored.sarvamTts !== false,
+      sarvam_voice: stored.sarvamVoice || "",
+      sarvam_pace: typeof stored.sarvamPace === "number" ? stored.sarvamPace : 1,
+      sarvam_volume: typeof stored.sarvamVolume === "number" ? stored.sarvamVolume : 1,
       storage_dir: "device",
       model_override: stored.model || "",
       // The provider the user scoped routing to ("auto" or an id). Resolved, not
@@ -1833,7 +1839,7 @@ export function useBrain() {
       kv.set(SHARE_KEY, key);
       const link = parseLink(share.text);
       if (!link) {
-        pushWarning("Shared with JARVIS: only a YouTube or Netflix link can be played on the TV.");
+        pushWarning("Shared with FRIDAY: only a YouTube or Netflix link can be played on the TV.");
       } else if (!tvSetUp) {
         pushWarning("Set up your TV under Remote PC & TV to play shared links on it.");
       } else {
@@ -1874,6 +1880,7 @@ export function useBrain() {
         ["mistralKey", "mistral_api_key"],
         ["nvidiaKey", "nvidia_api_key"],
         ["tavilyKey", "tavily_api_key"],
+        ["sarvamKey", "sarvam_api_key"],
       ]
         .filter(([, wireName]) => typeof cfg[wireName] === "string")
         .map(([name, wireName]) => [name, cfg[wireName].trim()]);
@@ -1923,6 +1930,12 @@ export function useBrain() {
         if (WA_MODES.has(cfg.wa_mode)) next.waMode = cfg.wa_mode;
         if (typeof cfg.wa_allowed === "string") next.waAllowed = cfg.wa_allowed.slice(0, 1_000);
         if (typeof cfg.wake_word === "boolean") next.wakeWord = cfg.wake_word;
+        if (typeof cfg.sarvam_tts === "boolean") next.sarvamTts = cfg.sarvam_tts;
+        if (typeof cfg.sarvam_voice === "string") next.sarvamVoice = cfg.sarvam_voice.trim();
+        if (typeof cfg.sarvam_pace === "number" && Number.isFinite(cfg.sarvam_pace))
+          next.sarvamPace = Math.min(1.6, Math.max(0.6, cfg.sarvam_pace));
+        if (typeof cfg.sarvam_volume === "number" && Number.isFinite(cfg.sarvam_volume))
+          next.sarvamVolume = Math.min(1, Math.max(0.3, cfg.sarvam_volume));
         if (typeof cfg.auto_switch_models === "boolean")
           next.autoSwitchModels = cfg.auto_switch_models;
         saveStored(next);
@@ -2194,7 +2207,7 @@ export function useBrain() {
         promptPermission: userInteractedRef.current && !taskCenterActive,
         onNeedsPermission: () =>
           pushWarning(
-            "Opening a system setting so JARVIS can show a STOP button over other apps — turn on “Draw over other apps”, then it'll appear whenever JARVIS is speaking or busy.",
+            "Opening a system setting so FRIDAY can show a STOP button over other apps — turn on “Draw over other apps”, then it'll appear whenever FRIDAY is speaking or busy.",
           ),
       },
     );
@@ -2210,7 +2223,7 @@ export function useBrain() {
       return;
     }
     try {
-      webSpeechTTS.stop(); // don't record JARVIS talking over you
+      webSpeechTTS.stop(); // don't record FRIDAY talking over you
       if (!micRef.current) micRef.current = new MicRecorder();
       await micRef.current.start();
       listeningRef.current = true;
@@ -2336,15 +2349,15 @@ export function useBrain() {
   }, []);
 
   // ── Greeting ────────────────────────────────────────────────────────────────
-  // JARVIS introduces himself once, as soon as a key is configured (desktop greets
+  // FRIDAY introduces herself once, as soon as a key is configured (desktop greets
   // from the backend; on the phone there's none, so the brain greets itself).
   const greetedRef = useRef(false);
   useEffect(() => {
     if (greetedRef.current || !hasKey) return;
     greetedRef.current = true;
     const hour = new Date().getHours();
-    const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-    const text = `${part}, sir. JARVIS online and at your service. How can I help?`;
+    const part = hour < 12 ? "सुप्रभात" : hour < 18 ? "नमस्कार" : "शुभ संध्या";
+    const text = `${part}, सर। मैं FRIDAY हूँ, आपकी सेवा में हाज़िर। बताइए, मैं कैसे मदद करूँ?`;
     setMessages((prev) =>
       prev.length ? prev : [{ role: "jarvis", text, actions: [], finalized: true, id: uid() }],
     );
@@ -2418,6 +2431,34 @@ export function useBrain() {
   // Not before the Keystore secrets load: a keyless refresh CLEARS every provider's
   // candidates, and if the keyed refresh after it then failed, the provider had
   // nothing left to fall back on until the next launch.
+  // FRIDAY's natural Hindi voice (Sarvam Bulbul): hand the saved key and voice choices to
+  // the speech module, and say once when it pauses itself (bad key, quota, flaky network)
+  // so the change to the phone's own voice is never a mystery.
+  useEffect(() => {
+    if (!secretsReady) return;
+    setSarvamSettings({
+      enabled: stored.sarvamTts !== false,
+      apiKey: stored.sarvamKey || "",
+      voice: stored.sarvamVoice,
+      pace: stored.sarvamPace,
+      volume: stored.sarvamVolume,
+    });
+  }, [
+    secretsReady,
+    stored.sarvamKey,
+    stored.sarvamTts,
+    stored.sarvamVoice,
+    stored.sarvamPace,
+    stored.sarvamVolume,
+  ]);
+  useEffect(
+    () =>
+      onSarvamCooldown(({ reason }) =>
+        pushWarning(`Natural voice paused: ${reason}. Using the phone's own voice for now.`),
+      ),
+    [pushWarning],
+  );
+
   const refreshPooled = useCallback(async () => {
     if (!secretsReady) return;
     await refreshCatalog({

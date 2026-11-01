@@ -635,16 +635,16 @@ const OPERATOR_JOURNAL_DEADLINE_MS = 450_000;
 
 const A11Y_OFF_SUMMARY =
   "I can't control your phone yet, sir — I don't have Accessibility access, so I can't " +
-  "see or touch the screen, and I haven't done anything. Turn on “JARVIS” in " +
+  "see or touch the screen, and I haven't done anything. Turn on “FRIDAY” in " +
   "Settings ▸ Accessibility ▸ Installed apps, then ask me again.";
 
 /** isEnabled() passed (the switch is on in Settings) but native has no bound
  *  service: Android stopped it after the app crashed or was force-stopped, and
  *  won't rebind until the switch is cycled. "Turn it on" would confuse — it IS on. */
 const A11Y_STALE_SUMMARY =
-  "I can't control your phone right now, sir, and I haven't done anything. JARVIS's " +
+  "I can't control your phone right now, sir, and I haven't done anything. FRIDAY's " +
   "Accessibility switch is on, but Android has stopped the service (it does that after " +
-  "the app crashes or is force-stopped). Turn “JARVIS” off and on again in Settings ▸ " +
+  "the app crashes or is force-stopped). Turn “FRIDAY” off and on again in Settings ▸ " +
   "Accessibility ▸ Installed apps, then ask me again.";
 
 /**

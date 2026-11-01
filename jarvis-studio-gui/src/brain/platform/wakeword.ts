@@ -240,7 +240,7 @@ export class WakeWordListener {
       void invoke("plugin:phone|start_wake_word").catch(() => {});
       if (this.notListeningStreak === 20) {
         this.opts.onFatal?.(
-          "Could not start on-device wake word — check that JARVIS has microphone access.",
+          "Could not start on-device wake word — check that FRIDAY has microphone access.",
         );
       }
     }

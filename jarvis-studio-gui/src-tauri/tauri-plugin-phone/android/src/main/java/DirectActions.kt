@@ -154,8 +154,27 @@ internal object DirectActions {
                 "lock_screen" -> lockScreen()
                 "navigate" -> navigate(act, a.query, a.mode)
                 "play" -> play(act, a.query, a.app)
+                "call_announce_config" -> callAnnounceConfig(act, a.query)
+                "call_announce_status" -> callAnnounceStatus(act)
                 else -> res(false, "I don't know the device action '${a.action}'.")
             }
+        }
+    }
+
+    /** Settings ▸ Voice ▸ Incoming calls. `json` = {"on":bool,"silent":bool,"dnd":bool,"headset":bool}. */
+    private fun callAnnounceConfig(ctx: Context, json: String): JSObject {
+        val o = org.json.JSONObject(json.ifBlank { "{}" })
+        CallAnnouncer.configure(ctx, o.optBoolean("on"), o.optBoolean("silent", true),
+            o.optBoolean("dnd", true), o.optBoolean("headset"))
+        return callAnnounceStatus(ctx)
+    }
+
+    private fun callAnnounceStatus(ctx: Context): JSObject {
+        val (on, access) = CallAnnouncer.status(ctx)
+        val (silent, dnd, headset) = CallAnnouncer.filters(ctx)
+        return res(true, if (on) "Call announcements on." else "Call announcements off.").apply {
+            put("on", on); put("access", access)
+            put("silent", silent); put("dnd", dnd); put("headset", headset)
         }
     }
 
@@ -191,7 +210,7 @@ internal object DirectActions {
         open(ctx, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
         return res(
             false,
-            "I need Do Not Disturb access first. I've opened the screen: switch JARVIS on there, then ask again.",
+            "I need Do Not Disturb access first. I've opened the screen: switch FRIDAY on there, then ask again.",
             "needs_access",
         )
     }
@@ -216,7 +235,7 @@ internal object DirectActions {
         if (!on && Build.VERSION.SDK_INT >= 35) {
             return res(
                 false,
-                "Do Not Disturb is still on: it was turned on outside JARVIS (Quick Settings or a schedule), " +
+                "Do Not Disturb is still on: it was turned on outside FRIDAY (Quick Settings or a schedule), " +
                     "and Android only lets an app switch off its own. Use phone_task to turn it off from Quick Settings.",
                 "dnd_not_ours",
             )
@@ -286,7 +305,7 @@ internal object DirectActions {
      *  was reported, while playing. Nothing is guessed without notification access. */
     fun mediaNow(ctx: Context): JSObject {
         if (!JarvisNotificationListener.enabled(ctx)) {
-            return res(false, "Turn on notification access for JARVIS so I can see what's playing.", "no_access")
+            return res(false, "Turn on notification access for FRIDAY so I can see what's playing.", "no_access")
         }
         val all = sessions(ctx)
         val s = all.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: all.firstOrNull()
@@ -350,7 +369,7 @@ internal object DirectActions {
         open(ctx, Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")))
         return res(
             false,
-            "I need permission to change system settings first. I've opened the screen: allow JARVIS there, then ask again.",
+            "I need permission to change system settings first. I've opened the screen: allow FRIDAY there, then ask again.",
             "needs_access",
         )
     }
@@ -385,7 +404,7 @@ internal object DirectActions {
 
     private fun lockScreen(): JSObject {
         val svc = JarvisAccessibilityService.instance
-            ?: return res(false, "Locking the screen needs JARVIS's accessibility service switched on.", "accessibility_disabled")
+            ?: return res(false, "Locking the screen needs FRIDAY's accessibility service switched on.", "accessibility_disabled")
         return if (svc.lockScreen()) res(true, "Screen locked.") else res(false, "Android didn't lock the screen.")
     }
 
@@ -468,7 +487,7 @@ internal object DirectActions {
             waitFor(7_000) { am.isMusicActive }
         }
         if (!started) {
-            val hint = if (access) "" else " (turn on notification access for JARVIS and I can start it directly)"
+            val hint = if (access) "" else " (turn on notification access for FRIDAY and I can start it directly)"
             return res(
                 false,
                 "I asked $name to play \"$q\", but nothing started playing$hint. phone_task can search and play it in the app.",
@@ -546,7 +565,7 @@ internal object DirectActions {
             if (!askOnce(act, android.Manifest.permission.READ_CONTACTS, 110)) openAppSettings(act)
             return res(
                 false,
-                "I need access to your contacts to find $who. Allow Contacts for JARVIS, then ask again.",
+                "I need access to your contacts to find $who. Allow Contacts for FRIDAY, then ask again.",
                 "needs_permission",
             )
         }
@@ -645,7 +664,7 @@ internal object DirectActions {
         if (svc == null) {
             return res(
                 false,
-                "I opened your WhatsApp chat with $name with the message typed. Tap Send (switch on JARVIS's accessibility service and I can send it myself).",
+                "I opened your WhatsApp chat with $name with the message typed. Tap Send (switch on FRIDAY's accessibility service and I can send it myself).",
                 "typed_not_sent",
             )
         }
@@ -666,7 +685,7 @@ internal object DirectActions {
         if (number.isBlank()) return res(false, "I don't have a phone number for $name.", "not_found")
         if (!granted(act, android.Manifest.permission.SEND_SMS)) {
             if (askOnce(act, android.Manifest.permission.SEND_SMS, 111)) {
-                return res(false, "I need permission to send texts. Allow SMS for JARVIS, then ask again.", "needs_permission")
+                return res(false, "I need permission to send texts. Allow SMS for FRIDAY, then ask again.", "needs_permission")
             }
             // Still not granted (declined, or a restricted setting on this install): hand
             // it to the Messages app with the text typed, and say that it isn't sent.
@@ -716,7 +735,7 @@ internal object DirectActions {
             else res(false, "The phone app wouldn't start the call.")
         }
         if (askOnce(act, android.Manifest.permission.CALL_PHONE, 112)) {
-            return res(false, "I need permission to place calls. Allow Phone for JARVIS, then ask again.", "needs_permission")
+            return res(false, "I need permission to place calls. Allow Phone for FRIDAY, then ask again.", "needs_permission")
         }
         val dial = Intent(Intent.ACTION_DIAL, tel)
         dial.resolveActivity(act.packageManager)?.packageName?.let { if (suspended(act, it)) return pausedApp("The phone app") }
@@ -768,7 +787,7 @@ internal object DirectActions {
         }
         // Open the chat by the official link and press its call button.
         val svc = JarvisAccessibilityService.instance
-            ?: return res(false, "A WhatsApp $kind needs JARVIS's accessibility service switched on.", "accessibility_disabled")
+            ?: return res(false, "A WhatsApp $kind needs FRIDAY's accessibility service switched on.", "accessibility_disabled")
         if (svc.isDeviceLocked()) return res(false, "The phone is locked, so I can't start that call.", "device_locked")
         if (!open(act, Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$digits")).setPackage(pkg))) {
             return res(false, "WhatsApp wouldn't open.")
@@ -804,7 +823,7 @@ internal object DirectActions {
             open(act, intent)
             return@guarded res(
                 false,
-                "I need notification access first. I've opened the screen: switch JARVIS on there, then ask again.",
+                "I need notification access first. I've opened the screen: switch FRIDAY on there, then ask again.",
                 "needs_access",
             )
         }

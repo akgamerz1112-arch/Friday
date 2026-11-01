@@ -85,7 +85,7 @@ export default function AgentActivity({ tasks, onClose, onClear, onStopTask, onS
       <>
         {ordered.length === 0 ? (
           <StateMessage variant="empty" icon="inbox" title="No tasks yet">
-            PC and phone work you hand to JARVIS appears here with live progress, recovery details
+            PC and phone work you hand to FRIDAY appears here with live progress, recovery details
             and the evidence it verified against.
           </StateMessage>
         ) : (
@@ -231,7 +231,7 @@ export default function AgentActivity({ tasks, onClose, onClear, onStopTask, onS
         )}
 
         <div className="activity-foot">
-          A task is marked done only after JARVIS has checked the result. Closing this screen
+          A task is marked done only after FRIDAY has checked the result. Closing this screen
           doesn&apos;t stop anything; use Stop for that.
         </div>
 

@@ -9,7 +9,7 @@ export type WhatsAppMode = "off" | "pc_off" | "always";
 export const WA_STALE_MS = 15 * 60_000;
 
 export const WA_ASLEEP_REPLY =
-  "That came in while JARVIS was asleep on the phone, so I didn't run it. Send it again if you still want it.";
+  "That came in while FRIDAY was asleep on the phone, so I didn't run it. Send it again if you still want it.";
 
 /**
  * "leave": the PC answers it (mode "pc_off" while the link to the PC is up);

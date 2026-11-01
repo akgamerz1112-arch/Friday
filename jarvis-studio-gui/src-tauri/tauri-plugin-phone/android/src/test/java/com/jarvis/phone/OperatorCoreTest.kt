@@ -218,7 +218,7 @@ class OperatorCoreTest {
             ).run()
         }
         assertEquals(listOf("openApp:Settings", "tap:0"), dev.actions)
-        assertTrue(out.steps[0].contains("JARVIS's own screen"))
+        assertTrue(out.steps[0].contains("FRIDAY's own screen"))
         assertTrue(out.summary, out.ok)
     }
 

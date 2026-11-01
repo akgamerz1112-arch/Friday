@@ -5,8 +5,21 @@ import {
   pickGrantedFolder,
   requestCalendarPermission,
   requestNotificationAccess,
+  callAnnounceConfig,
+  callAnnounceStatus,
 } from "../brain/platform";
+import { evaluateFeatures, gatherFeatureContext } from "../brain/features";
 import { modelClassFor } from "../brain/modelPolicy";
+import {
+  SARVAM_VOICES,
+  MAX_PACE,
+  MIN_PACE,
+  MIN_VOLUME,
+  MAX_SPOKEN_CHARS,
+  sarvamStatus,
+  testSarvamVoice,
+  stopSarvam,
+} from "../brain/platform/sarvamTts";
 import * as quota from "../brain/quota";
 import Icon from "./Icon";
 import StateMessage from "./StateMessage";
@@ -178,7 +191,7 @@ function QuotaPanel() {
           </div>
         )}
         <More>
-          A route is one model on one key. After a rate limit JARVIS rests that route and uses the
+          A route is one model on one key. After a rate limit FRIDAY rests that route and uses the
           next one instead of failing. Clearing only helps if you&apos;ve fixed the cause.
         </More>
       </div>
@@ -226,7 +239,7 @@ function RoutingSection({ routing, onRerank }) {
             replaces the computed summary instead of repeating it. */}
         {models.length === 0 && !r.in_progress ? (
           <div className="sp-desc">
-            JARVIS ranks your models once it can see them. Until then it uses its built-in Gemini
+            FRIDAY ranks your models once it can see them. Until then it uses its built-in Gemini
             and Groq tiers.
           </div>
         ) : (
@@ -334,6 +347,41 @@ export default function Settings({
     sysInfo.provider_mode || (IS_MOBILE ? "auto" : "groq"),
   );
   const [wakeWordOn, setWakeWordOn] = useState(sysInfo.wake_word !== false);
+  // Incoming-call announcements: the phone keeps these itself and applies a change at once,
+  // so they are not part of Save (CallAnnouncer.kt).
+  const [call, setCall] = useState({ on: false, silent: true, dnd: true, headset: false, access: null });
+  useEffect(() => {
+    if (!IS_MOBILE) return undefined;
+    let live = true;
+    callAnnounceStatus().then((r) => {
+      if (live && r)
+        setCall({
+          on: Boolean(r.on),
+          silent: r.silent !== false,
+          dnd: r.dnd !== false,
+          headset: Boolean(r.headset),
+          access: Boolean(r.access),
+        });
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const changeCall = (patch) => {
+    const next = { ...call, ...patch };
+    setCall(next);
+    void callAnnounceConfig({
+      on: next.on,
+      silent: next.silent,
+      dnd: next.dnd,
+      headset: next.headset,
+    }).then((r) => r && setCall((c) => ({ ...c, access: Boolean(r.access) })));
+  };
+  const [features, setFeatures] = useState(null);
+  const refreshFeatures = () => {
+    setFeatures(null);
+    void gatherFeatureContext(sysInfo).then((ctx) => setFeatures(evaluateFeatures(ctx)));
+  };
   const [autoSwitch, setAutoSwitch] = useState(sysInfo.auto_switch_models !== false);
   const [offlineModel, setOfflineModel] = useState(sysInfo.offline_model ?? "");
   const [ollamaUrl, setOllamaUrl] = useState(sysInfo.ollama_url ?? "http://localhost:11434");
@@ -362,6 +410,27 @@ export default function Settings({
   const [mistralKey, setMistralKey] = useState("");
   const [nvidiaKey, setNvidiaKey] = useState("");
   const [tavilyKey, setTavilyKey] = useState("");
+  const [sarvamKey, setSarvamKey] = useState("");
+  const [sarvamOn, setSarvamOn] = useState(sysInfo.sarvam_tts !== false);
+  const [sarvamVoice, setSarvamVoice] = useState(
+    SARVAM_VOICES.some((v) => v.id === sysInfo.sarvam_voice)
+      ? sysInfo.sarvam_voice
+      : SARVAM_VOICES[0].id,
+  );
+  const [sarvamPace, setSarvamPace] = useState(sysInfo.sarvam_pace ?? 1);
+  const [sarvamVolume, setSarvamVolume] = useState(sysInfo.sarvam_volume ?? 1);
+  const [voiceTest, setVoiceTest] = useState({ busy: false, ok: null, message: "" });
+  const runVoiceTest = async () => {
+    setVoiceTest({ busy: true, ok: null, message: "" });
+    const res = await testSarvamVoice({
+      enabled: true,
+      ...(sarvamKey.trim() ? { apiKey: sarvamKey.trim() } : {}),
+      voice: sarvamVoice,
+      pace: sarvamPace,
+      volume: sarvamVolume,
+    });
+    setVoiceTest({ busy: false, ok: res.ok, message: res.message });
+  };
   const [elevenKey, setElevenKey] = useState("");
   const [mapsKey, setMapsKey] = useState("");
   const [sysAlerts, setSysAlerts] = useState(!!sysInfo.system_alerts);
@@ -417,6 +486,12 @@ export default function Settings({
     cfg.auto_switch_models = autoSwitch;
     if (IS_MOBILE) cfg.wake_word = wakeWordOn;
     if (IS_MOBILE) {
+      cfg.sarvam_tts = sarvamOn;
+      cfg.sarvam_voice = sarvamVoice;
+      cfg.sarvam_pace = sarvamPace;
+      cfg.sarvam_volume = sarvamVolume;
+    }
+    if (IS_MOBILE) {
       cfg.pc_commands = pcCommands;
       cfg.wa_mode = waMode;
       cfg.wa_allowed = waAllowed;
@@ -435,6 +510,7 @@ export default function Settings({
     if (mistralKey.trim()) cfg.mistral_api_key = mistralKey.trim();
     if (nvidiaKey.trim()) cfg.nvidia_api_key = nvidiaKey.trim();
     if (tavilyKey.trim()) cfg.tavily_api_key = tavilyKey.trim();
+    if (sarvamKey.trim()) cfg.sarvam_api_key = sarvamKey.trim();
     if (elevenKey.trim()) cfg.elevenlabs_api_key = elevenKey.trim();
     if (mapsKey.trim()) cfg.google_maps_key = mapsKey.trim();
     return cfg;
@@ -556,7 +632,7 @@ export default function Settings({
           )}
           {imageModelSelected && (
             <Warn>
-              Image models only make images, so saving keeps Auto for chat. Ask JARVIS for an image
+              Image models only make images, so saving keeps Auto for chat. Ask FRIDAY for an image
               and it uses this model on its own.
             </Warn>
           )}
@@ -671,8 +747,8 @@ export default function Settings({
             model !== "auto"
               ? `Every request goes to ${model} on ${providerName}.`
               : providerMode === "auto"
-                ? "JARVIS picks the model for each request: a quick one for small talk, a stronger one for real work."
-                : `JARVIS picks the best ${providerName} model for each request.`
+                ? "FRIDAY picks the model for each request: a quick one for small talk, a stronger one for real work."
+                : `FRIDAY picks the best ${providerName} model for each request.`
           }
         >
           <select
@@ -740,7 +816,7 @@ export default function Settings({
   );
 
   const multiKeyHint =
-    "Free-tier limits count per key. Paste several, one per line, and JARVIS rotates through them.";
+    "Free-tier limits count per key. Paste several, one per line, and FRIDAY rotates through them.";
   const keysPage = (
     <>
       <p className="sp-lede">
@@ -874,7 +950,16 @@ export default function Settings({
     </>
   );
 
+  const sarvamNow = sarvamStatus();
+  const sarvamLine = !sarvamNow.configured
+    ? "No key saved: replies use the phone's built-in voice."
+    : !sarvamNow.enabled
+      ? "Switched off: replies use the phone's built-in voice."
+      : sarvamNow.coolingDown
+        ? `Paused (${sarvamNow.reason}); the phone's built-in voice is covering. It tries again by itself.`
+        : "Ready. Replies use this voice; the phone's built-in voice takes over if it fails.";
   const voicePage = (
+    <>
     <Group>
       {IS_MOBILE ? (
         <>
@@ -887,8 +972,10 @@ export default function Settings({
           <div className="sp-field">
             <More>
               Needs microphone permission. Speech-to-text uses Cloud Speech-to-Text on Vertex, or
-              Groq Whisper on Groq and Gemini. Replies are spoken by the phone&apos;s built-in
-              text-to-speech.
+              Groq Whisper on Groq and Gemini. The wake word model on the phone still listens
+              for &ldquo;Hey Jarvis&rdquo;; a &ldquo;Hey Friday&rdquo; model is not installed
+              yet. Replies are spoken by the natural voice below when it is set up, and by the
+              phone&apos;s built-in voice otherwise.
             </More>
           </div>
         </>
@@ -903,7 +990,7 @@ export default function Settings({
           </select>
           {tts === "piper" && (
             <div className="sp-desc">
-              Private and unlimited. The 60 MB voice downloads the first time JARVIS speaks.
+              Private and unlimited. The 60 MB voice downloads the first time FRIDAY speaks.
             </div>
           )}
           {tts === "elevenlabs" &&
@@ -921,6 +1008,140 @@ export default function Settings({
         <span className="sp-value sp-mono">{sysInfo.wakeWord || "hey_jarvis"}</span>
       </div>
     </Group>
+    {IS_MOBILE && (
+      <Group title="Natural Hindi voice (Sarvam)">
+        <Toggle
+          label="Use the natural voice"
+          checked={sarvamOn}
+          onChange={setSarvamOn}
+          hint="Needs a Sarvam API key and internet. Turn it off to always use the phone's own voice."
+        />
+        <KeyField
+          label="Sarvam API key"
+          configured={sysInfo.has_sarvam_key}
+          note="Kept in Android's secure storage, never in the app files or logs. Get one at dashboard.sarvam.ai."
+          value={sarvamKey}
+          onChange={setSarvamKey}
+          placeholder="Paste your Sarvam key"
+          removeName="sarvam_api_key"
+          onSave={onSave}
+        />
+        <Field label="Voice" hint="All female Hindi voices. Use Test voice to hear one.">
+          <select
+            className="sp-input"
+            value={sarvamVoice}
+            onChange={(e) => setSarvamVoice(e.target.value)}
+          >
+            {SARVAM_VOICES.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={`Speaking speed: ${sarvamPace.toFixed(2)}×`}>
+          <input
+            type="range"
+            className="sp-input"
+            min={MIN_PACE}
+            max={MAX_PACE}
+            step="0.05"
+            value={sarvamPace}
+            onChange={(e) => setSarvamPace(Number(e.target.value))}
+            aria-label="Speaking speed"
+          />
+        </Field>
+        <Field label={`Voice volume: ${Math.round(sarvamVolume * 100)}%`} hint="Relative to the phone's media volume.">
+          <input
+            type="range"
+            className="sp-input"
+            min={MIN_VOLUME}
+            max="1"
+            step="0.05"
+            value={sarvamVolume}
+            onChange={(e) => setSarvamVolume(Number(e.target.value))}
+            aria-label="Voice volume"
+          />
+        </Field>
+        <div className="sp-field">
+          <button
+            type="button"
+            className="sp-btn"
+            disabled={voiceTest.busy}
+            onClick={voiceTest.busy ? undefined : runVoiceTest}
+          >
+            {voiceTest.busy ? "Testing…" : "Test voice"}
+          </button>
+          {voiceTest.busy && (
+            <button type="button" className="sp-btn sp-btn--quiet" onClick={stopSarvam}>
+              Stop
+            </button>
+          )}
+          {voiceTest.message && (
+            <div className="sp-desc" role="status">
+              {voiceTest.message}
+              {voiceTest.ok && sarvamKey.trim() ? " Save to keep this key." : ""}
+            </div>
+          )}
+          <div className="sp-desc">{sarvamLine}</div>
+          <More>
+            To save quota, a reply is only sent to Sarvam when it is switched on, a key is saved and
+            you are online. Short repeated phrases are remembered for the session. A reply longer
+            than about {MAX_SPOKEN_CHARS} characters, or a rejected key or used-up quota, uses the
+            phone&apos;s built-in voice instead, and a paused voice is retried automatically.
+          </More>
+        </div>
+      </Group>
+    )}
+    {IS_MOBILE && (
+      <Group title="Incoming calls">
+        <Toggle
+          label="Announce who is calling"
+          checked={call.on}
+          onChange={(v) => changeCall({ on: v })}
+          hint="Says “सर, … का कॉल आ रहा है।” in the phone's own Hindi voice. Reads the name your phone app shows; numbers are not read out."
+        />
+        {call.on && (
+          <>
+            <Toggle
+              label="Stay quiet on silent or vibrate"
+              checked={call.silent}
+              onChange={(v) => changeCall({ silent: v })}
+            />
+            <Toggle
+              label="Stay quiet in Do Not Disturb"
+              checked={call.dnd}
+              onChange={(v) => changeCall({ dnd: v })}
+            />
+            <Toggle
+              label="Only when headphones are connected"
+              checked={call.headset}
+              onChange={(v) => changeCall({ headset: v })}
+            />
+          </>
+        )}
+        {call.on && call.access === false && (
+          <div className="sp-field">
+            <Warn>Needs notification access to see the ringing call.</Warn>
+            <button
+              type="button"
+              className="sp-btn"
+              onClick={() => void requestNotificationAccess()}
+            >
+              Turn on notification access
+            </button>
+          </div>
+        )}
+        <div className="sp-field">
+          <More>
+            The announcement is spoken by the phone&apos;s built-in voice, not Sarvam, because
+            Android pauses the app&apos;s web view while the screen is off. If your phone app
+            doesn&apos;t post a standard incoming-call notification, nothing is announced.
+          </More>
+        </div>
+      </Group>
+    )}
+    </>
   );
 
   const automationPage = (
@@ -975,7 +1196,7 @@ export default function Settings({
           label="Show over other apps"
           checked={ovlEnabled}
           onChange={setOvlEnabled}
-          hint="A small pill above the taskbar shows whether JARVIS is listening or working, with a stop button."
+          hint="A small pill above the taskbar shows whether FRIDAY is listening or working, with a stop button."
         />
         {ovlEnabled && (
           <Field label="Hide it in these apps">
@@ -1072,7 +1293,7 @@ export default function Settings({
         label="Let my PC ask this phone to do things"
         checked={pcCommands}
         onChange={setPcCommands}
-        hint="“Set an alarm on my phone”, said at the PC or sent to it on WhatsApp (also from a number you allowed there): alarms, timers, reminders, the flashlight, ringer, Do Not Disturb, volume and music. Never messages or calls anyone, and never reads the phone. JARVIS needs to be open, or recently used, to answer."
+        hint="“Set an alarm on my phone”, said at the PC or sent to it on WhatsApp (also from a number you allowed there): alarms, timers, reminders, the flashlight, ringer, Do Not Disturb, volume and music. Never messages or calls anyone, and never reads the phone. FRIDAY needs to be open, or recently used, to answer."
       />
     </Group>
   );
@@ -1083,7 +1304,7 @@ export default function Settings({
     <Group title="WhatsApp on this phone">
       <Field
         label="Answer WhatsApp here"
-        hint="Messages that start with “Jarvis” from the contacts below get an answer through WhatsApp's notification, with nothing opening on screen. With your PC's WhatsApp on too, “when my PC is offline” lets the PC answer while this phone is connected to it."
+        hint="Messages that start with “Hey Friday” or “Jarvis” from the contacts below get an answer through WhatsApp's notification, with nothing opening on screen. With your PC's WhatsApp on too, “when my PC is offline” lets the PC answer while this phone is connected to it."
       >
         <select className="sp-input" value={waMode} onChange={(e) => setWaMode(e.target.value)}>
           <option value="off">Off</option>
@@ -1094,7 +1315,7 @@ export default function Settings({
       {waMode !== "off" && (
         <>
           <Field
-            label="Who may command JARVIS"
+            label="Who may command FRIDAY"
             hint="Contact names exactly as saved, or numbers, separated by commas. Groups and everyone else are ignored."
           >
             <textarea
@@ -1108,7 +1329,7 @@ export default function Settings({
           </Field>
           {sysInfo.wa_access === false && (
             <div className="sp-field">
-              <Warn>JARVIS needs notification access to see WhatsApp messages.</Warn>
+              <Warn>FRIDAY needs notification access to see WhatsApp messages.</Warn>
               <button
                 type="button"
                 className="sp-btn"
@@ -1119,13 +1340,13 @@ export default function Settings({
             </div>
           )}
           <div className="sp-field">
-            <More label="Talking to JARVIS from your own WhatsApp">
+            <More label="Talking to FRIDAY from your own WhatsApp">
               WhatsApp never notifies you about your own messages, so your “Message yourself” chat
-              can&apos;t reach JARVIS on this phone (the PC&apos;s linked WhatsApp can). To chat
-              with it here, give JARVIS its own number — WhatsApp Business with a second number on
-              this phone works — and list your main number above. JARVIS answers only while Android
+              can&apos;t reach FRIDAY on this phone (the PC&apos;s linked WhatsApp can). To chat
+              with it here, give FRIDAY its own number — WhatsApp Business with a second number on
+              this phone works — and list your main number above. FRIDAY answers only while Android
               lets it run: when it has been in the background a while, a “tap to run” notification
-              appears instead, and opening JARVIS answers it. It can set alarms, timers and
+              appears instead, and opening FRIDAY answers it. It can set alarms, timers and
               reminders, flip the phone&apos;s switches, play music and look things up — it never
               messages anyone else or reads your phone.
             </More>
@@ -1147,11 +1368,11 @@ export default function Settings({
           // dialog would lose that race.
           if (on) void requestCalendarPermission();
         }}
-        hint="Items show up in Google Calendar and on your other devices. Turn off to keep the agenda inside JARVIS."
+        hint="Items show up in Google Calendar and on your other devices. Turn off to keep the agenda inside FRIDAY."
       />
       <div className="sp-field">
         <More label="If you decline calendar permission">
-          JARVIS opens the calendar&apos;s own new-event screen instead, so you can still add the
+          FRIDAY opens the calendar&apos;s own new-event screen instead, so you can still add the
           item yourself.
         </More>
       </div>
@@ -1164,7 +1385,7 @@ export default function Settings({
         <span className="sp-label">Folder</span>
         <span className="sp-value sp-mono">{grantedFolder ? grantedFolder.name : "None"}</span>
       </div>
-      <Field hint="JARVIS can list this folder and read the text files in it. It can never write, move or delete anything.">
+      <Field hint="FRIDAY can list this folder and read the text files in it. It can never write, move or delete anything.">
         <button type="button" className="sp-btn" onClick={chooseFolder}>
           {grantedFolder ? "Change folder" : "Choose folder"}
         </button>
@@ -1172,24 +1393,24 @@ export default function Settings({
     </Group>
   ) : (
     <>
-      <Group title="Where JARVIS saves things">
+      <Group title="Where FRIDAY saves things">
         <Field hint="Images, recordings and documents go into subfolders here.">
           <input
             type="text"
             className="sp-input sp-mono"
             value={storageDir}
             onChange={(e) => setStorageDir(e.target.value)}
-            placeholder="C:\Users\you\Jarvis"
+            placeholder="C:\Users\you\Friday"
             spellCheck={false}
           />
         </Field>
       </Group>
-      <Group title="Folders JARVIS can read">
+      <Group title="Folders FRIDAY can read">
         <Field hint="It can list these and read files inside, asking you each time. It can never run, write, move or delete anything.">
           <div className="dirlist">
             {dirs.length === 0 && (
               <StateMessage variant="empty" icon="folder" title="No folders yet">
-                Add one to let JARVIS read files from it.
+                Add one to let FRIDAY read files from it.
               </StateMessage>
             )}
             {dirs.map((d) => (
@@ -1244,6 +1465,21 @@ export default function Settings({
           </div>
         )}
       </Group>
+      <Group title="Feature status">
+        <div className="sp-field">
+          <button type="button" className="sp-btn" onClick={refreshFeatures}>
+            {features ? "Re-check" : "Check features"}
+          </button>
+        </div>
+        {features?.map((f) => (
+          <div className="sp-field sp-row" key={f.id}>
+            <span className="sp-label">
+              {f.state === "ok" ? "✓" : f.state === "warn" ? "!" : "–"} {f.label}
+            </span>
+            <span className="sp-value">{f.detail}</span>
+          </div>
+        ))}
+      </Group>
       <Group title={IS_MOBILE ? "Connection" : "Components"}>
         <Field
           hint={
@@ -1293,7 +1529,7 @@ export default function Settings({
         id: "models",
         title: "Intelligence",
         icon: "spark",
-        desc: "Where JARVIS thinks, and with which model.",
+        desc: "Where FRIDAY thinks, and with which model.",
         words: "model provider llm vertex gemini groq auto level",
         value: model !== "auto" ? model : PROVIDER_NAME[providerMode] || providerMode,
         tone: "on",
@@ -1331,7 +1567,7 @@ export default function Settings({
         id: "voice",
         title: "Voice",
         icon: "volume",
-        desc: "How JARVIS sounds, wakes up and speaks up on its own.",
+        desc: "How FRIDAY sounds, wakes up and speaks up on its own.",
         words: "wake word speech tts hey jarvis",
         value: IS_MOBILE
           ? wakeWordOn
@@ -1409,7 +1645,7 @@ export default function Settings({
         id: "files",
         title: "Files",
         icon: "folder",
-        desc: "Where JARVIS keeps files, and what it may read.",
+        desc: "Where FRIDAY keeps files, and what it may read.",
         words: "storage folder documents",
         value: IS_MOBILE
           ? grantedFolder?.name || "No folder"

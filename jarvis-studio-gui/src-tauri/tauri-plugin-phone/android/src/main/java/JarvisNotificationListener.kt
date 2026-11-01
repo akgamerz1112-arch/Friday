@@ -80,6 +80,12 @@ class JarvisNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn?.let { changedAt[it.key] = SystemClock.elapsedRealtime() }
+        // Incoming call -> spoken announcement (CallAnnouncer.kt; off unless switched on).
+        try {
+            sbn?.let { CallAnnouncer.offer(this, it) }
+        } catch (e: Exception) {
+            android.util.Log.w("JarvisNotifications", "Call announce failed: ${e.message}")
+        }
         // A WhatsApp message for JARVIS from a listed contact (Settings ▸ PC & WhatsApp).
         try {
             sbn?.let { WhatsAppInbox.offer(this, it) }

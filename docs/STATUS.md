@@ -633,3 +633,9 @@ The original planning document and the phase-by-phase build log live in
 [archive/](archive/) — `ANDROID_PLAN.md` (the June 2026 engineering plan) and
 `NEXT-STEPS.md` (the Phase 0–4 log). They are kept for context and are **not** maintained;
 where they disagree with this file or [ARCHITECTURE.md](ARCHITECTURE.md), those two win.
+
+## FRIDAY fork (phases 1–2)
+
+Rename to FRIDAY, Hindi-first persona and the Sarvam Bulbul voice: see `docs/FRIDAY.md`. Written without a build environment; unverified on a device until someone runs the APK.
+
+Phase 3 (call announcer, feature status, dev guide): see `docs/FRIDAY.md`. Not compiled or run — check the CI run and a real ring test.

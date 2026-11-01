@@ -1,9 +1,9 @@
 /* HudApp.jsx — the home screen, as on the desktop (its hud/HudApp.jsx): a header
-   (logo + quick controls), JARVIS at the centre (time, the orb, what it's doing, its
+   (logo + quick controls), FRIDAY at the centre (time, the orb, what it's doing, its
    last reply and an ask box) and the live cards. A phone stacks it in one scrolling
    column and puts the menus (Chat, Memory, Skills, Capabilities) in a bottom bar
    around the mic, since they don't fit beside the controls. App owns every
-   open/collapse state so JARVIS can drive the screen by voice; `screen` (Customize)
+   open/collapse state so FRIDAY can drive the screen by voice; `screen` (Customize)
    holds the look (colours, font, corners, glow, card style, centrepiece, gauges,
    background) and the layout (density, which cards show, and in what order). */
 
@@ -115,7 +115,7 @@ function AskBar({ onSend, onListen, status, placeholder }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}
-        aria-label="Ask JARVIS"
+        aria-label="Ask FRIDAY"
         enterKeyHint="send"
       />
       <button
@@ -358,7 +358,7 @@ export function JarvisHUD({
       <header className="home-top">
         <div className="home-brand">
           <span className="home-logo" aria-hidden />
-          <span className="home-name">JARVIS</span>
+          <span className="home-name">FRIDAY</span>
           {!IS_MOBILE && (
             <button
               type="button"
@@ -411,13 +411,13 @@ export function JarvisHUD({
           {column("left")}
         </aside>
 
-        <section className="home-hero" aria-label="JARVIS">
+        <section className="home-hero" aria-label="FRIDAY">
           <HeroClock />
           <Core
             status={shownStatus}
             rgb={c.rgb}
             onClick={busy ? onStop : onListen}
-            label={busy ? "Stop" : "Talk to JARVIS"}
+            label={busy ? "Stop" : "Talk to FRIDAY"}
           />
           <div className="hero-status" role="status">
             {hudCards && <Waveform status={shownStatus} />}
@@ -463,7 +463,7 @@ export function JarvisHUD({
             placeholder={
               agentMode && activeAgent !== "auto"
                 ? `Ask the ${agentById(activeAgent).name} agent…`
-                : "Ask JARVIS anything…"
+                : "Ask FRIDAY anything…"
             }
           />
 

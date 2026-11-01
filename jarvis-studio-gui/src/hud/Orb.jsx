@@ -1,5 +1,5 @@
 /* Orb.jsx — JARVIS's presence on the home screen: soft colour fields swirling in a
-   sphere, in the theme's accent. Its motion says what JARVIS is doing (slow when
+   sphere, in the theme's accent. Its motion says what FRIDAY is doing (slow when
    idle, ripples while listening, an orbiting arc while thinking or working, a pulse
    while speaking). Pure CSS animation (home.css), so it costs no JS per frame. */
 

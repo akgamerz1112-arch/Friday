@@ -502,9 +502,9 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
             val nm = activity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val channel = NotificationChannel(
                 REMINDER_CHANNEL_ID,
-                "JARVIS Reminders",
+                "FRIDAY Reminders",
                 NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = "Reminders and timers you asked JARVIS to set." }
+            ).apply { description = "Reminders and timers you asked FRIDAY to set." }
             nm.createNotificationChannel(channel)
         }
     }
@@ -571,39 +571,61 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
         })
     }
 
-    /** Calmer, lower-pitched British male voice — closer to desktop JARVIS. */
+    // The phone's own voice is FRIDAY's fallback when the natural Sarvam voice isn't
+    // available: a female Hindi voice for Devanagari text, a female Indian-English one
+    // for the rest. Which voices exist depends on the engines installed on the phone.
+    private var hindiVoice: android.speech.tts.Voice? = null
+    private var englishVoice: android.speech.tts.Voice? = null
+
+    private fun isFemaleVoice(v: android.speech.tts.Voice): Boolean {
+        val n = v.name.lowercase()
+        return n.contains("female") || n.contains("-hia-") || n.contains("-hic-") ||
+            n.contains("-ena-") || n.contains("-enc-")
+    }
+
+    private fun isMaleVoice(v: android.speech.tts.Voice): Boolean {
+        val n = v.name.lowercase()
+        return n.contains("male") && !n.contains("female")
+    }
+
+    private fun bestVoice(pool: List<android.speech.tts.Voice>): android.speech.tts.Voice? =
+        pool.firstOrNull { isFemaleVoice(it) && !it.isNetworkConnectionRequired }
+            ?: pool.firstOrNull { isFemaleVoice(it) }
+            ?: pool.firstOrNull { !isMaleVoice(it) }
+            ?: pool.firstOrNull()
+
     private fun configureTtsVoice() {
         val engine = tts ?: return
         try {
-            engine.language = Locale.UK
-            engine.setSpeechRate(0.92f)
-            engine.setPitch(0.86f)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                val voices = engine.voices ?: return
-                val en = voices.filter { v ->
-                    val lang = v.locale?.language ?: ""
-                    lang == "en" || lang.startsWith("en")
-                }
-                val pool = if (en.isNotEmpty()) en else voices.toList()
-                val picked = pool.firstOrNull { v ->
-                    val n = v.name.lowercase()
-                    (n.contains("male") || n.contains("daniel") || n.contains("david") || n.contains("ryan"))
-                        && !n.contains("female")
-                } ?: pool.firstOrNull { v ->
-                    val n = v.name.lowercase()
-                    n.contains("network") || n.contains("neural") || n.contains("enhanced")
-                } ?: pool.firstOrNull { v ->
-                    (v.locale?.country ?: "").equals("GB", ignoreCase = true)
-                } ?: pool.firstOrNull()
-                if (picked != null) engine.voice = picked
+            engine.setSpeechRate(1.0f)
+            engine.setPitch(1.05f)
+            val all: List<android.speech.tts.Voice> = try {
+                engine.voices?.toList() ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
             }
+            hindiVoice = bestVoice(all.filter { it.locale?.language == "hi" })
+            val english = all.filter { it.locale?.language == "en" }
+            val indian = english.filter { it.locale?.country.equals("IN", ignoreCase = true) }
+            englishVoice = bestVoice(if (indian.isNotEmpty()) indian else english)
+            val first = englishVoice
+            if (first != null) engine.voice = first else engine.language = Locale.UK
+            android.util.Log.i("FridayTTS", "hindi voice: ${hindiVoice?.name}, english voice: ${englishVoice?.name}")
         } catch (_: Exception) {
         }
     }
 
     private fun speakNow(text: String) {
         // QUEUE_FLUSH so a fresh reply (or a rapid double-greeting) replaces the last.
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
+        val engine = tts
+        try {
+            val devanagari = text.any { it in '\u0900'..'\u097F' }
+            val voice = if (devanagari) hindiVoice else englishVoice
+            if (voice != null) engine?.voice = voice
+            else if (devanagari) engine?.language = Locale("hi", "IN")
+        } catch (_: Exception) {
+        }
+        engine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
     }
 
     @Command
@@ -692,7 +714,7 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
                 Regex("permission|denied|securityexception|audiorecord", RegexOption.IGNORE_CASE)
                     .containsMatchIn(reason)
             val summary = when {
-                looksLikePermission -> "Could not start wake word — allow microphone access for JARVIS."
+                looksLikePermission -> "Could not start wake word — allow microphone access for FRIDAY."
                 reason != null -> "Could not start wake word: $reason"
                 else -> "Could not start wake word."
             }
@@ -1040,7 +1062,7 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
         windowId = args.windowId,
     )
 
-    private fun serviceOff() = result(false, "The JARVIS accessibility service isn't enabled.")
+    private fun serviceOff() = result(false, "The FRIDAY accessibility service isn't enabled.")
 
     private fun sampleCpu(): Int {
         return try {
@@ -1482,7 +1504,7 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
             return
         }
         if (service() == null) {
-            invoke.resolve(result(false, "The JARVIS accessibility service isn't enabled.").apply {
+            invoke.resolve(result(false, "The FRIDAY accessibility service isn't enabled.").apply {
                 put("error", "accessibility_disabled")
             })
             return
@@ -2069,7 +2091,7 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun calendarAction(invoke: Invoke) {
         val args = invoke.parseArgs(CalendarArgs::class.java)
-        val title = args.title.trim().ifEmpty { "JARVIS" }
+        val title = args.title.trim().ifEmpty { "FRIDAY" }
         // A zero-length event renders as a point in time in most calendar UIs and is
         // easy to miss, so give a bare agenda item a sensible half-hour block.
         val start = args.startMillis

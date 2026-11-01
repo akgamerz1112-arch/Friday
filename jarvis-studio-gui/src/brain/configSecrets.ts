@@ -8,6 +8,7 @@ export const CONFIG_SECRET_FIELDS = [
   "mistralKey",
   "nvidiaKey",
   "tavilyKey",
+  "sarvamKey",
 ] as const;
 export type ConfigSecretName = (typeof CONFIG_SECRET_FIELDS)[number];
 export type ConfigSecrets = Partial<Record<ConfigSecretName, string>>;

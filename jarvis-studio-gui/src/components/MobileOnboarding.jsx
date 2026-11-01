@@ -201,7 +201,7 @@ export default function MobileOnboarding({ onSave }) {
           ? isVertex
             ? "Add your service account"
             : "Add a key to continue"
-          : "Start JARVIS";
+          : "Start FRIDAY";
 
   const start = async () => {
     if (!canStart) return;
@@ -225,14 +225,14 @@ export default function MobileOnboarding({ onSave }) {
         <div className="ob-inner ob-inner--intro">
           <header className="ob-hero">
             <div className="ob-orb">
-              <Orb label="JARVIS" />
+              <Orb label="FRIDAY" />
             </div>
             <div className="ob-word">J.A.R.V.I.S</div>
             <h1 id="ob-title" className="ob-title">
               Let&apos;s get you set up
             </h1>
             <p className="ob-lede">
-              JARVIS thinks with a cloud AI model. Connect one and it can talk with you, use your
+              FRIDAY thinks with a cloud AI model. Connect one and it can talk with you, use your
               apps, and run your PC and TV.
             </p>
           </header>
@@ -289,7 +289,7 @@ export default function MobileOnboarding({ onSave }) {
         <p className="ob-lede">
           {isVertex
             ? "Paste or pick the JSON key of a service account that has the Vertex AI User role."
-            : "One is enough to start. With both, JARVIS gets voice, chat and web search."}
+            : "One is enough to start. With both, FRIDAY gets voice, chat and web search."}
         </p>
 
         {isVertex ? (
@@ -344,13 +344,13 @@ export default function MobileOnboarding({ onSave }) {
             {groqCheck.state === "empty" && usable(geminiCheck) && (
               <p className="ob-hint">
                 <Icon name="mic" size={15} />
-                Without a Groq key JARVIS can&apos;t hear you, so you&apos;ll type instead. You can
+                Without a Groq key FRIDAY can&apos;t hear you, so you&apos;ll type instead. You can
                 add one later in Settings.
               </p>
             )}
             <p className="ob-hint">
               <Icon name="info" size={15} />
-              Got several keys? Put one per line. Free limits count per key, so JARVIS moves to the
+              Got several keys? Put one per line. Free limits count per key, so FRIDAY moves to the
               next when one runs out.
             </p>
           </>

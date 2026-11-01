@@ -415,7 +415,7 @@ class OperatorLoop(
                 if (!fresh.ready) {
                     return OperatorOutcome(
                         false,
-                        "The accessibility service dropped — please re-enable JARVIS in Accessibility settings.",
+                        "The accessibility service dropped — please re-enable FRIDAY in Accessibility settings.",
                         "accessibility_disabled",
                         steps = steps,
                     )
@@ -893,7 +893,7 @@ class OperatorLoop(
         ) {
             return OpResult(
                 false,
-                "That's JARVIS's own screen, not a target — use open_app to open the app the goal needs.",
+                "That's FRIDAY's own screen, not a target — use open_app to open the app the goal needs.",
                 "self_app",
             )
         }
@@ -1256,7 +1256,7 @@ internal fun rateLimitSummary(steps: List<String>): String {
 /** Sent with EVERY step, so it is kept tight: the free Gemma tier is limited by tokens per
  *  minute, and each character here is paid on every step of every task. */
 internal const val SYSTEM_PROMPT =
-    "You are JARVIS, driving an Android phone through its accessibility service, one command " +
+    "You are FRIDAY, driving an Android phone through its accessibility service, one command " +
         "per turn. You see the screen as a numbered element list.\n" +
         "Reply with EXACTLY ONE JSON object, nothing else:\n" +
         "{\"do\":\"open_app\",\"name\":\"<app>\"}  launch an app by name (never hunt through the home screen)\n" +
@@ -1297,7 +1297,7 @@ internal const val SYSTEM_PROMPT =
         "you don't know, search first. open_app always lands on the app's main screen.\n" +
         "- Nobody can answer questions mid-task: make the most reasonable assumption, or fail and say what " +
         "you'd need. If an approach fails twice, try another or fail honestly.\n" +
-        "- JARVIS's own screen is never the target (open_app first). JARVIS's floating STOP near the " +
+        "- FRIDAY's own screen is never the target (open_app first). FRIDAY's floating STOP near the " +
         "top-right edge (painted out of screenshots) ends YOUR task — never press it; use the app's buttons.\n" +
         "- Coordinate taps run only in low-risk tasks; anything that sends, pays, buys or deletes needs the " +
         "user's up-front approval. After one you get a fresh screenshot: check it landed.\n" +

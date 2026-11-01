@@ -216,7 +216,7 @@ object NativeOperator {
         try {
             launchIntent(context)?.let(context::startActivity)
         } catch (e: RuntimeException) {
-            Log.w(TAG, "couldn't bring JARVIS back: ${e.message}")
+            Log.w(TAG, "couldn't bring FRIDAY back: ${e.message}")
         }
     }
 
@@ -286,7 +286,7 @@ object NativeOperator {
             }
             val n = NotificationCompat.Builder(context, PhonePlugin.REMINDER_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(if (outcome.ok) "JARVIS finished" else "JARVIS stopped")
+                .setContentTitle(if (outcome.ok) "FRIDAY finished" else "FRIDAY stopped")
                 .setContentText(outcome.summary)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(outcome.summary))
                 .setAutoCancel(true)
@@ -429,7 +429,7 @@ object NativeOperator {
         private suspend fun act(
             block: (JarvisAccessibilityService, (JarvisAccessibilityService.ActionReceipt) -> Unit) -> Unit,
         ): OpResult {
-            val s = svc() ?: return OpResult(false, "The JARVIS accessibility service isn't enabled.", "service_off")
+            val s = svc() ?: return OpResult(false, "The FRIDAY accessibility service isn't enabled.", "service_off")
             val r = withTimeoutOrNull(ACTION_TIMEOUT_MS) {
                 suspendCancellableCoroutine<JarvisAccessibilityService.ActionReceipt> { cont ->
                     block(s) { rec -> if (cont.isActive) cont.resume(rec) }

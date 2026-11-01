@@ -1,4 +1,6 @@
-/* Web Speech TTS — ANDROID FORK (Milestone 1B).
+/* Spoken replies — ANDROID FORK. Sarvam (sarvamTts.ts) first, then the phone's own TTS.
+ *
+ * Web Speech TTS — ANDROID FORK (Milestone 1B).
  *
  * Speaks JARVIS's replies using the WebView's SpeechSynthesis API, which on Android
  * is backed by the device's native TextToSpeech engine. This gives real on-device
@@ -14,6 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { TextToSpeech } from "./index";
 import { inTauri } from "../tools/httpClient";
 import { stripMarkdownForSpeech } from "../formatting";
+import { speakWithSarvam, stopSarvam } from "./sarvamTts";
 
 function synth(): SpeechSynthesis | null {
   return typeof window !== "undefined" && "speechSynthesis" in window
@@ -91,7 +94,16 @@ export const webSpeechTTS: TextToSpeech = {
   async speak(text: string): Promise<void> {
     // The transcript can contain **bold** and other readable Markdown. Passing
     // it through unchanged makes Android literally say "asterisk asterisk".
-    const clean = stripMarkdownForSpeech(text);
+    let clean = stripMarkdownForSpeech(text);
+    if (!clean) return;
+
+    // Natural Hindi voice first (Sarvam Bulbul), when a key is saved, it is switched on
+    // and it isn't paused. It speaks what it can; whatever it could not say — everything,
+    // if it failed, is offline or the reply is too long — goes to the phone's own voice
+    // below, so a Sarvam problem never means a silent reply. A STOP ends it for good.
+    const sarvam = await speakWithSarvam(clean);
+    if (sarvam.done) return;
+    clean = sarvam.remaining.trim() ? stripMarkdownForSpeech(sarvam.remaining) : clean;
     if (!clean) return;
 
     // On-device: speak through native Android TextToSpeech (the WebView has no
@@ -160,6 +172,7 @@ export const webSpeechTTS: TextToSpeech = {
   },
 
   stop(): Promise<void> {
+    stopSarvam();
     if (inTauri()) invoke("plugin:phone|stop_speaking").catch(() => {});
     if (stopCurrent) stopCurrent(); // cut the native "speaking" wait short
     try {

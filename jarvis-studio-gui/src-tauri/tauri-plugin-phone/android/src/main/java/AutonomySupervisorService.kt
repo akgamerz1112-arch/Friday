@@ -104,7 +104,7 @@ class AutonomySupervisorService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        suspendAll("JARVIS UI closed; re-observation required before resume.")
+        suspendAll("FRIDAY UI closed; re-observation required before resume.")
         super.onTaskRemoved(rootIntent)
     }
 
@@ -248,7 +248,7 @@ class AutonomySupervisorService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_pause)
-            .setContentTitle("JARVIS is controlling this phone")
+            .setContentTitle("FRIDAY is controlling this phone")
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -265,7 +265,7 @@ class AutonomySupervisorService : Service() {
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "JARVIS autonomous tasks",
+                    "FRIDAY autonomous tasks",
                     NotificationManager.IMPORTANCE_LOW,
                 ).apply { description = "Progress with persistent Pause and Stop controls." },
             )

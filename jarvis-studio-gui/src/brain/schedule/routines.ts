@@ -161,8 +161,8 @@ export async function timedRoutineNote(r: Routine): Promise<string> {
   if (s?.ok && s.notifications) {
     return `At ${r.time} I'll post a notification${s.exact ? "" : " (Android may hold it a few minutes)"}; tap it and I'll run the routine.`;
   }
-  const why = s?.ok ? "notifications are off for JARVIS" : "I can't schedule it on this device";
-  return `It runs while JARVIS is open, or when you open me within ${CATCH_UP_MIN / 60} hours after — ${why}.`;
+  const why = s?.ok ? "notifications are off for FRIDAY" : "I can't schedule it on this device";
+  return `It runs while FRIDAY is open, or when you open me within ${CATCH_UP_MIN / 60} hours after — ${why}.`;
 }
 
 /** The routine a tapped notification is for, unless it's gone or already ran on or after

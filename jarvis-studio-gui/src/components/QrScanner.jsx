@@ -78,7 +78,7 @@ export default function QrScanner({ onResult, onCancel }) {
         rafRef.current = requestAnimationFrame(scanLoop);
       } catch (e) {
         setError(
-          "Couldn't open the camera — check JARVIS has camera permission in Android Settings, or enter the details manually instead. (" +
+          "Couldn't open the camera — check FRIDAY has camera permission in Android Settings, or enter the details manually instead. (" +
             (e?.message || e) +
             ")",
         );
