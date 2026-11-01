@@ -123,7 +123,7 @@ object CallAnnouncer {
     private var queued: String? = null
 
     @Synchronized
-    private fun speak(ctx: Context, text: String) {
+    internal fun speak(ctx: Context, text: String) {
         if (ready && tts != null) { say(text); return }
         queued = text
         if (tts != null) return

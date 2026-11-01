@@ -173,3 +173,22 @@ Typecheck passed; 3 old tests failed and are fixed: fastCommands music switch no
 
 ## Build APK fix
 Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 did not hold a valid keystore. The step now cleans whitespace, checks the keystore with keytool, and on a bad secret only warns (build still runs, random key).
+
+## Phase 12 — wake word with the app in the background
+- **Cause:** the clip (wake + command) was collected, transcribed and answered by the WebView (`wakeword.ts`). Android throttles the
+  WebView once the app leaves the screen, so the service kept the mic dot on and detected the wake, but nobody picked up the clip.
+- **Fix** (`BackgroundAssistant.kt`, hooked from `WakeWordService.newManager().onClip`): `pollWakeWord` now stamps `lastJsPollMs`
+  (JS polls every 140 ms). When the clip is ready and JS has not polled for 2.5 s (or never took the clip within 5 s), the service takes
+  the clip itself: Groq Whisper (hi) -> wake-phrase check (a clip without Jarvis/Friday/जार्विस/फ्राइडे near the start is dropped as a
+  false wake) -> instant command (`NativeFast`: torch, volume, mute, vibrate, music keys, time, battery) or a short Groq chat answer
+  (`openai/gpt-oss-20b`, 2 sentences) -> spoken with the phone's Hindi voice. App on screen = the old JS path, untouched.
+- **Limits:** needs the Groq key (`groqKey` in the Keystore store); speaks with the phone's voice, not Sarvam; no tools, screen reading,
+  opening apps or phone-control tasks in the background (it tells you to open FRIDAY). Native TTS may choose the first Hindi voice.
+- **Not verified:** nothing compiled or run. If CI fails, look first at `BackgroundAssistant.kt`. Tests: `BackgroundAssistantTest.kt`.
+
+### Phase 12 device checks
+- Open FRIDAY, go to the home screen or another app, say "Hey Jarvis" … pause … "torch chalu karo": torch on + spoken answer?
+- Same with "Hey Jarvis, battery kitni hai" and a question ("India ki rajdhani kya hai").
+- Say it with the app open: the old path should behave as before and the phone voice should NOT also answer.
+- Say "torch chalu karo" without the wake word in the background: nothing should happen.
+

@@ -743,6 +743,7 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun pollWakeWord(invoke: Invoke) {
         val res = JSObject()
+        WakeWordService.lastJsPollMs = android.os.SystemClock.elapsedRealtime()
         val seq = WakeWordService.wakeSeq.get()
         res.put("seq", seq)
         res.put("listening", WakeWordService.isListening)

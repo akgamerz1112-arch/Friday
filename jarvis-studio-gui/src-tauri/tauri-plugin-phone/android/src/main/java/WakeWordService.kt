@@ -79,6 +79,10 @@ class WakeWordService : Service() {
          *  polls it every second without loss). Survives engine stop/start (companion). */
         val wakeSeq = java.util.concurrent.atomic.AtomicInteger(0)
 
+        /** When the WebView last polled (PhonePlugin.pollWakeWord). Android throttles the
+         *  WebView in the background; BackgroundAssistant takes over when this goes stale. */
+        @Volatile var lastJsPollMs = 0L
+
         /** Detection [seq]'s clip — the wake plus the command after it — as a base64 WAV,
          *  for wakeword.ts to transcribe. [speech] is false when nothing past the wake word
          *  sounded like speech. In memory only; handed out once, or replaced by the next. */
@@ -203,6 +207,7 @@ class WakeWordService : Service() {
                     manual,
                 ),
             )
+            BackgroundAssistant.maybeTakeOver(applicationContext, wakeSeq.get())
         },
     )
 
