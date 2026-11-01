@@ -152,7 +152,7 @@ Cause of "sahi se sun nahi pata / task nahi karta": speech-to-text was forced to
 
 ## Phase 9 — greeting voice, faster command end
 - Launch greeting is now just "हे बॉस!", spoken with Sarvam ONLY (waits up to ~5 s for the saved key; silent if Sarvam is unusable, never the phone's own voice).
-- Wake phrase: "Jarvis, ..." / "जार्विस, ..." as the first word now counts; "है जार्विस" too.
+- Wake phrase: Devanagari "जार्विस, ..." as the first word counts (Latin "Jarvis, ..." deliberately does NOT: false-wake guard); "है जार्विस" too.
 - Command end: the native silence wait is now 750 ms by default (was 1000 ms); driving-mode off returns to "normal,quick".
 - Still the main waits: Whisper upload, then the Sarvam round trip before the reply is heard. Not measured here. Not compiled or run.
 

@@ -24,11 +24,10 @@ const DEV_JARVIS = String.raw`जा?र्?व[िी][सश]`;
 /** Hindi recognition writes "Hey Jarvis" in Devanagari. A greeting is required, as in Latin. */
 export const JARVIS_DEVANAGARI = new RegExp(String.raw`${SEP}${DEV_GREET}[\s,.!?।-]*${DEV_JARVIS}`);
 
-/** "Jarvis, torch chalu karo": the name as the first word of the clip (the model already fired, and
- *  the clip starts at the pre-roll, so this is the wake itself). Latin and Devanagari. */
+/** "जार्विस, टॉर्च चालू करो": the Devanagari name as the first word, with a command after it. Not for
+ *  Latin "Jarvis" (a bare or "Jarvis is the app…" clip must not wake — live false wake 2026-09-26). */
 export const JARVIS_FIRST = new RegExp(
-  String.raw`^[\s,.!?-]*(?:(?:j|ch|tr)[ae]r?v[aeiu]s\b|${DEV_JARVIS})(?=[\s,.!?।-]|$)`,
-  "i",
+  String.raw`^[\s,.!?-]*${DEV_JARVIS}(?=[\s,.!?।-]+(?!(?:है|एक|का|की|के|ऐप)(?:[\s,.!?।-]|$))\S)`,
 );
 
 /** "Hey Friday" in Latin script. */

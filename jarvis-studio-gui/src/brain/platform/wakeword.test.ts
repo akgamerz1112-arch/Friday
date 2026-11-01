@@ -310,9 +310,10 @@ describe("Hindi (Devanagari) wake transcripts", () => {
 });
 
 describe("name as the first word", () => {
-  it("counts Jarvis spoken first, in Latin or Devanagari", () => {
-    expect(commandAfterWake("Jarvis, torch on")).toBe("torch on");
+  it("counts the Devanagari name spoken first, with a command after it", () => {
     expect(commandAfterWake("जार्विस टॉर्च चालू करो")).toBe("टॉर्च चालू करो");
-    expect(heardWakePhrase("my Jarvis app")).toBe(false);
+    expect(heardWakePhrase("जार्विस।")).toBe(false);
+    expect(heardWakePhrase("जार्विस एक ऐप है")).toBe(false);
+    expect(heardWakePhrase("Jarvis is the app I'm building")).toBe(false);
   });
 });
