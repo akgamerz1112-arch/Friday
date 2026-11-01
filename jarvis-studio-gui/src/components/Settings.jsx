@@ -7,6 +7,9 @@ import {
   requestNotificationAccess,
   callAnnounceConfig,
   callAnnounceStatus,
+  wakeSensitivity,
+  pauseAppControl,
+  openAccessibilitySettingsScreen,
 } from "../brain/platform";
 import { evaluateFeatures, gatherFeatureContext } from "../brain/features";
 import { modelClassFor } from "../brain/modelPolicy";
@@ -377,6 +380,27 @@ export default function Settings({
       headset: next.headset,
     }).then((r) => r && setCall((c) => ({ ...c, access: Boolean(r.access) })));
   };
+  const [wakeLevel, setWakeLevel] = useState("normal");
+  const [wakeModel, setWakeModel] = useState("hey_jarvis.onnx");
+  // Driving / noisy mode: one switch = short replies + a more sensitive wake word + full-volume voice.
+  const [driveOn, setDriveOn] = useState(sysInfo.conversation_mode === true);
+  const changeDrive = (on) => {
+    setDriveOn(on);
+    setWakeLevel(on ? "high" : "normal");
+    void wakeSensitivity(on ? "high,quick" : "normal,slow");
+    if (on) {
+      setSarvamVolume(1);
+      setSarvamPace(1);
+    }
+  };
+  const [payNote, setPayNote] = useState("");
+  useEffect(() => {
+    if (!IS_MOBILE) return;
+    wakeSensitivity().then((r) => {
+      if (r?.level) setWakeLevel(r.level);
+      if (r?.model) setWakeModel(r.model);
+    });
+  }, []);
   const [features, setFeatures] = useState(null);
   const refreshFeatures = () => {
     setFeatures(null);
@@ -485,6 +509,7 @@ export default function Settings({
     };
     cfg.auto_switch_models = autoSwitch;
     if (IS_MOBILE) cfg.wake_word = wakeWordOn;
+    if (IS_MOBILE) cfg.conversation_mode = driveOn;
     if (IS_MOBILE) {
       cfg.sarvam_tts = sarvamOn;
       cfg.sarvam_voice = sarvamVoice;
@@ -964,7 +989,7 @@ export default function Settings({
       {IS_MOBILE ? (
         <>
           <Toggle
-            label="“Hey Jarvis” wake word"
+            label="Wake word"
             checked={wakeWordOn}
             onChange={setWakeWordOn}
             hint="Listens on the phone itself. Nothing is sent until it hears the wake word."
@@ -972,9 +997,12 @@ export default function Settings({
           <div className="sp-field">
             <More>
               Needs microphone permission. Speech-to-text uses Cloud Speech-to-Text on Vertex, or
-              Groq Whisper on Groq and Gemini. The wake word model on the phone still listens
-              for &ldquo;Hey Jarvis&rdquo;; a &ldquo;Hey Friday&rdquo; model is not installed
-              yet. Replies are spoken by the natural voice below when it is set up, and by the
+              Groq Whisper on Groq and Gemini. {wakeModel === "hey_friday.onnx"
+                ? "The wake word model on the phone is the trained “Hey Friday” one."
+                : "The wake word model on the phone only knows “Hey Jarvis”; a “Hey Friday” model is not installed yet (see docs/FRIDAY.md). “Hey Friday” is accepted in the check, but only if the model wakes first."} The wake word follows the name: the female voice answers to &ldquo;Friday&rdquo;, a male voice to
+              &ldquo;Jarvis&rdquo; (or say &ldquo;Jarvis ban jao&rdquo; / &ldquo;Friday ban jao&rdquo;). Side button: Phone Settings,
+              Apps, Default apps, Digital assistant app, FRIDAY; then a long press of the side key listens.
+              Replies are spoken by the natural voice below when it is set up, and by the
               phone&apos;s built-in voice otherwise.
             </More>
           </div>
@@ -1003,9 +1031,36 @@ export default function Settings({
             ))}
         </Field>
       )}
+      {IS_MOBILE && (
+        <Toggle
+          label="Driving / noisy mode"
+          checked={driveOn}
+          onChange={changeDrive}
+          hint="Short answers, a more sensitive wake word, the voice at full volume, and the reply starts sooner after you stop talking. For the car, a bike or a busy street. Save to keep the short answers."
+        />
+      )}
+      {IS_MOBILE && (
+        <Field
+          label="Wake word sensitivity"
+          hint="Higher hears softer or farther voices but wakes by mistake more often. Applies at once."
+        >
+          <select
+            className="sp-input"
+            value={wakeLevel}
+            onChange={(e) => {
+              setWakeLevel(e.target.value);
+              void wakeSensitivity(e.target.value);
+            }}
+          >
+            <option value="normal">Normal (tested)</option>
+            <option value="high">High</option>
+            <option value="max">Maximum</option>
+          </select>
+        </Field>
+      )}
       <div className="sp-field sp-row">
         <span className="sp-label">Wake phrase</span>
-        <span className="sp-value sp-mono">{sysInfo.wakeWord || "hey_jarvis"}</span>
+        <span className="sp-value sp-mono">{wakeModel.replace(".onnx", "")}</span>
       </div>
     </Group>
     {IS_MOBILE && (
@@ -1090,6 +1145,36 @@ export default function Settings({
             than about {MAX_SPOKEN_CHARS} characters, or a rejected key or used-up quota, uses the
             phone&apos;s built-in voice instead, and a paused voice is retried automatically.
           </More>
+        </div>
+      </Group>
+    )}
+    {IS_MOBILE && (
+      <Group title="Payments (Google Pay)">
+        <div className="sp-field">
+          <div className="sp-desc">
+            Google Pay and banking apps refuse to work while any accessibility service is on.
+            App control needs it, but torch, volume, calls and replies do not.
+          </div>
+          <button
+            type="button"
+            className="sp-btn"
+            onClick={() =>
+              void pauseAppControl().then((r) =>
+                setPayNote(r?.summary || "Couldn't switch it off. Use Android Settings ▸ Accessibility."),
+              )
+            }
+          >
+            Pause app control for payments
+          </button>
+          <button type="button" className="sp-btn" onClick={() => void openAccessibilitySettingsScreen()}>
+            Turn app control back on
+          </button>
+          {payNote && (
+            <div className="sp-desc" role="status">
+              {payNote}
+            </div>
+          )}
+          <div className="sp-desc">You can also say “accessibility band karo”.</div>
         </div>
       </Group>
     )}

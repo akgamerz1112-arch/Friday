@@ -45,7 +45,7 @@ class WakeWordManager(
     /** The latest detection's clip: up to 3 s before it plus the command that followed,
      *  until [CommandCapture] heard it end or [stop]. `speech` is false when nothing past
      *  the wake word sounded like speech. */
-    private val onClip: (audio: ShortArray, speech: Boolean) -> Unit,
+    private val onClip: (audio: ShortArray, speech: Boolean, manual: Boolean) -> Unit,
 ) {
     companion object {
         private const val TAG = "JarvisWW"
@@ -57,7 +57,71 @@ class WakeWordManager(
         // noise sat ≤0.26 in testing, so a slightly lower bar fires a touch sooner and
         // catches softer/faster utterances. Conversation can clear it too; the pre-roll
         // check in wakeword.ts is what rejects those.
-        private const val THRESHOLD = 0.35f
+        /** Wake score bar. "normal" 0.35 (tested), "high" 0.25, "max" 0.18: softer voices and
+         *  longer range, at the price of more false wakes (each one is checked by Whisper). */
+        @Volatile private var threshold = 0.35f
+        private const val WAKE_PREFS = "friday.wake"
+
+        fun sensitivity(ctx: Context): String =
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE)
+                .getString("level", "normal") ?: "normal"
+
+        fun setSensitivity(ctx: Context, level: String) {
+            val l = if (level == "high" || level == "max") level else "normal"
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE)
+                .edit().putString("level", l).apply()
+            threshold = thresholdFor(l)
+        }
+
+        private const val MODEL_FRIDAY = "hey_friday.onnx"
+        private const val MODEL_JARVIS = "hey_jarvis.onnx"
+        /** Quick mode: a 0.65 s pause ends the command (normal is 1 s) — the reply starts
+         *  sooner. For the car; a slow speaker's mid-sentence pause can get cut. */
+        private const val QUICK_SILENCE_MS = 650L
+        @Volatile private var silenceMs = CommandCapture.SILENCE_MS
+
+        /** The model the engine last loaded (what JS is told, so it knows which name can wake). */
+        @Volatile var loadedModel = MODEL_JARVIS
+            private set
+
+        /** The name FRIDAY answers to: "friday" (default) or "jarvis". The JS side keeps it in
+         *  step with the persona (a male voice = JARVIS), and the wake model follows it. */
+        fun wakeName(ctx: Context): String =
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE)
+                .getString("name", "friday") ?: "friday"
+
+        fun setWakeName(ctx: Context, name: String) {
+            val n = if (name == "jarvis") "jarvis" else "friday"
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE)
+                .edit().putString("name", n).apply()
+        }
+
+        /** The model for the chosen name: "friday" uses a trained hey_friday.onnx if one was added
+         *  to the assets (scripts/add-friday-model.sh), else the shipped hey_jarvis.onnx;
+         *  "jarvis" always uses hey_jarvis.onnx. */
+        fun modelAsset(ctx: Context): String = try {
+            if (wakeName(ctx) == "friday" &&
+                ctx.applicationContext.assets.list("")?.contains(MODEL_FRIDAY) == true
+            ) MODEL_FRIDAY else MODEL_JARVIS
+        } catch (_: Exception) {
+            MODEL_JARVIS
+        }
+
+        /** What to say to wake it, for the listening notification. */
+        fun phrase(ctx: Context): String = if (modelAsset(ctx) == MODEL_FRIDAY) "Hey Friday" else "Hey Jarvis"
+
+        fun quickEnd(ctx: Context): Boolean =
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE).getBoolean("quick", false)
+
+        fun setQuickEnd(ctx: Context, on: Boolean) {
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean("quick", on).apply()
+            silenceMs = silenceFor(on)
+        }
+
+        internal fun silenceFor(quick: Boolean) = if (quick) QUICK_SILENCE_MS else CommandCapture.SILENCE_MS
+
+        internal fun thresholdFor(level: String) = when (level) { "high" -> 0.25f; "max" -> 0.18f; else -> 0.35f }
         private const val COOLDOWN_MS = 3_000L
         /** 3 s of history: "Hey Jarvis" plus room for a slow speaker. */
         private const val PRE_ROLL_SAMPLES = SAMPLE_RATE * 3
@@ -80,10 +144,26 @@ class WakeWordManager(
     val capturing: Boolean
         @Synchronized get() = capture != null
 
+    /** True while the running capture was started by a button press, not the wake word. */
+    @Volatile private var manualCapture = false
+    /** Whether the capture [advanceCapture] last finished was a button press. */
+    @Volatile private var lastManual = false
+
     @Synchronized
-    private fun beginCapture() {
-        capture = CommandCapture(ring.snapshot(), SAMPLE_RATE)
+    private fun beginCapture(manual: Boolean = false) {
+        // A button press has no wake word to keep, so its clip starts empty (no earlier talk).
+        capture = CommandCapture(if (manual) ShortArray(0) else ring.snapshot(), SAMPLE_RATE, silenceMs)
+        manualCapture = manual
         noise.hold()
+    }
+
+    /** The assistant button (or a headset button) was pressed: record a command now, no wake
+     *  word needed. False when the engine isn't listening or is already recording one. */
+    fun manualTrigger(): Boolean {
+        if (job == null || capturing) return false
+        beginCapture(manual = true)
+        scope.launch(Dispatchers.Main) { onDetected(1f) }
+        return true
     }
 
     /** Feed the capture; the finished one once its command is over (or [force]d by stop). */
@@ -93,6 +173,8 @@ class WakeWordManager(
         val done = (chunk != null && c.add(chunk, loud)) || force
         if (!done) return null
         capture = null
+        lastManual = manualCapture
+        manualCapture = false
         noise.release()
         android.util.Log.i(
             TAG,
@@ -118,11 +200,15 @@ class WakeWordManager(
             ) { "RECORD_AUDIO permission is required for wake word detection" }
             // openWakeWord loads model files from the APK's ASSETS via AssetManager.open()
             // — NOT from the filesystem. So the path must be the asset-relative NAME;
-            // hey_jarvis.onnx (plus melspectrogram.onnx / embedding_model.onnx) ship in
-            // src/main/assets. Passing an absolute /data/... path threw FileNotFoundException
+            // hey_jarvis.onnx (or hey_friday.onnx when added; plus melspectrogram.onnx /
+            // embedding_model.onnx) ship in src/main/assets. Passing an absolute /data/... path threw FileNotFoundException
             // and was the long-standing reason "Hey Jarvis" never listened on-device.
-            android.util.Log.i(TAG, "loading hey_jarvis.onnx")
-            val r = OnnxModelRunner(context.applicationContext.assets, "hey_jarvis.onnx")
+            threshold = thresholdFor(sensitivity(context))
+            silenceMs = silenceFor(quickEnd(context))
+            val model = modelAsset(context)
+            loadedModel = model
+            android.util.Log.i(TAG, "loading $model")
+            val r = OnnxModelRunner(context.applicationContext.assets, model)
             runner = r
             val p = AudioProcessor(context.applicationContext.assets, r)
             processor = p
@@ -137,7 +223,7 @@ class WakeWordManager(
                             val now = System.currentTimeMillis()
                             val loud = noise.loud(chunk)
                             advanceCapture(chunk, loud, force = false)?.let { c ->
-                                withContext(Dispatchers.Main) { onClip(c.audio(), c.speech) }
+                                withContext(Dispatchers.Main) { onClip(c.audio(), c.speech, lastManual) }
                             }
                             val score = try {
                                 p.predictWakeWord(FloatArray(chunk.size) { chunk[it] / 32768f })
@@ -145,7 +231,7 @@ class WakeWordManager(
                                 android.util.Log.w(TAG, "inference failed: ${e.message}")
                                 return@collect
                             }
-                            if (score > THRESHOLD && now - lastFire >= COOLDOWN_MS && !capturing) {
+                            if (score > threshold && now - lastFire >= COOLDOWN_MS && !capturing) {
                                 lastFire = now
                                 android.util.Log.i(TAG, "DETECTION score=${"%.3f".format(score)}")
                                 beginCapture()
@@ -198,7 +284,7 @@ class WakeWordManager(
     fun stop() {
         // Stopped mid-command (the toggle, a recycle): hand over what was heard rather than
         // lose it with the loop.
-        advanceCapture(null, loud = false, force = true)?.let { onClip(it.audio(), it.speech) }
+        advanceCapture(null, loud = false, force = true)?.let { onClip(it.audio(), it.speech, lastManual) }
         val j = job
         val p = processor
         val r = runner

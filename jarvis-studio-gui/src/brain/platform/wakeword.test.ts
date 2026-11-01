@@ -20,6 +20,7 @@ vi.mock("./stt", () => ({
 }));
 
 import { commandAfterWake, heardWakePhrase, WakeWordListener } from "./wakeword";
+import { acceptedNames } from "./wakePhrase";
 
 /** Drive the listener's private poll loop deterministically. */
 function pollOf(l: WakeWordListener): () => Promise<void> {
@@ -133,6 +134,51 @@ describe("heardWakePhrase", () => {
     ]) {
       expect(heardWakePhrase(t), t).toBe(false);
     }
+  });
+});
+
+describe("Hey Friday", () => {
+  it("accepts how Whisper writes a spoken 'Hey Friday', Latin or Devanagari", () => {
+    for (const t of [
+      "Hey Friday",
+      "hey friday torch on",
+      "Okay, Friday!",
+      "Hi Fry day",
+      "Friday, torch on", // the name as the first word of the clip
+      "हे फ्राइडे टॉर्च जलाओ",
+      "फ्राइडे",
+      "ओके फ्रायडे, समय क्या है",
+    ]) {
+      expect(heardWakePhrase(t), t).toBe(true);
+    }
+  });
+
+  it("rejects the weekday", () => {
+    for (const t of ["see you on Friday", "the meeting is Friday morning", "शुक्रवार को मिलते हैं"]) {
+      expect(heardWakePhrase(t), t).toBe(false);
+    }
+  });
+
+  it("takes the command after the name", () => {
+    expect(commandAfterWake("Hey Friday, open YouTube.")).toBe("open YouTube.");
+    expect(commandAfterWake("Hey Friday. Hey Jarvis, pause")).toBe("pause");
+    expect(commandAfterWake("हे फ्राइडे टॉर्च जलाओ")).toBe("टॉर्च जलाओ");
+    expect(commandAfterWake("set an alarm for Friday")).toBeNull();
+  });
+});
+
+describe("the chosen name", () => {
+  it("only the chosen name wakes, plus the loaded model's own", () => {
+    expect(acceptedNames("jarvis", "hey_jarvis.onnx")).toEqual(["jarvis"]);
+    expect(acceptedNames("friday", "hey_friday.onnx")).toEqual(["friday"]);
+    // Friday chosen but only the Jarvis model installed: Jarvis must still get through.
+    expect(acceptedNames("friday", "hey_jarvis.onnx")).toEqual(["friday", "jarvis"]);
+  });
+  it("rejects the other name", () => {
+    expect(heardWakePhrase("Hey Friday", ["jarvis"])).toBe(false);
+    expect(heardWakePhrase("Hey Jarvis", ["friday"])).toBe(false);
+    expect(commandAfterWake("Hey Jarvis, pause", ["jarvis"])).toBe("pause");
+    expect(commandAfterWake("Hey Friday, pause", ["jarvis"])).toBeNull();
   });
 });
 

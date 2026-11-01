@@ -1,4 +1,4 @@
-/* Wake word ("Hey Jarvis") — ANDROID FORK.
+/* Wake word ("Hey Friday" / "Hey Jarvis") — ANDROID FORK.
  *
  * openWakeWord listens on-device (free, instant, always running). On a detection the
  * native engine keeps recording until the command ends and hands over ONE clip — the
@@ -14,19 +14,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { transcribe, isNoiseTranscript } from "./stt";
 import { inTauri } from "../tools/httpClient";
 import { base64ToBytes } from "../tools/base64";
+import { acceptedNames, lastWakeEnd, type WakeName } from "./wakePhrase";
 
 const WAKE = /\b(?:hey\s+|ok(?:ay)?\s+|hi\s+)?j[ae][rv]+i[s5]\b/i;
 
-/** "Hey Jarvis" the way a recogniser writes it: a greeting, then the name. Whisper also
- *  spells the name Jervis, Javis or Travis, and hears "Hey" as "Kay" or "A." (live
- *  2026-09-27). A bare "Jarvis" doesn't count — "my Jarvis app" is someone talking ABOUT
- *  JARVIS, which is how the 2026-09-26 false wake started. */
-const WAKE_PHRASE =
-  /(?:\b(?:hey|hi|hay|hei|ay|eh|kay|ok(?:ay)?|hello|yo)\b[\s,.!-]*|\ba[.,!]\s*)(?:j|ch|tr)[ae]r?v[aeiu]s\b/i;
-
-export function heardWakePhrase(text: string): boolean {
-  return WAKE_PHRASE.test(text);
-}
+export { heardWakePhrase } from "./wakePhrase";
 
 // How long to wait for the clip: the native capture's 10 s ceiling plus slack.
 const CLIP_WAIT_MS = 14000;
@@ -43,11 +35,11 @@ function stripWake(text: string): string {
     .trim();
 }
 
-/** The command in a clip's transcript: what follows its LAST "Hey Jarvis" (the pre-roll
- *  can hold talk from before it). null when no wake phrase was heard — a false wake. */
-export function commandAfterWake(text: string): string | null {
-  let end = -1;
-  for (const m of text.matchAll(new RegExp(WAKE_PHRASE.source, "gi"))) end = m.index + m[0].length;
+/** The command in a clip's transcript: what follows its LAST wake phrase ("Hey Friday" or
+ *  "Hey Jarvis"; the pre-roll can hold talk from before it). null when no wake phrase was
+ *  heard — a false wake. */
+export function commandAfterWake(text: string, names?: readonly WakeName[]): string | null {
+  const end = lastWakeEnd(text, names);
   return end < 0 ? null : stripWake(text.slice(end));
 }
 
@@ -57,6 +49,10 @@ export interface WakeWordOpts {
   // compute the config signature so syncWakeWord() knows when to restart the engine.
   /** `prompt: ""` asks for no vocabulary prompt (the wake check needs an unbiased ear). */
   transcribe?: (blob: Blob, o?: { prompt?: string }) => Promise<string>;
+  /** The name FRIDAY currently answers to (the persona: a male voice = "jarvis"). The phone's
+   *  wake model follows it, and only that name (plus the loaded model's own) passes the check.
+   *  Omitted = both names. */
+  chosenName?: () => WakeName;
   isBusy: () => boolean;
   onStatus?: (s: "listening" | "idle") => void;
   onCommand: (text: string) => void;
@@ -103,6 +99,8 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 interface Clip {
   wav: string;
   speech: boolean;
+  /** Started by the assistant button: there is no wake phrase to look for. */
+  manual?: boolean;
 }
 
 export class WakeWordListener {
@@ -116,6 +114,10 @@ export class WakeWordListener {
   private onVisible?: () => void;
   /** When the in-flight poll started (0 = none). See poll(). */
   private pollingSince = 0;
+  /** The wake model the phone says it loaded; decides which names can wake it. */
+  private model = "hey_jarvis.onnx";
+  private sentName = "";
+  private sendingName = false;
 
   constructor(private opts: WakeWordOpts) {}
 
@@ -214,7 +216,14 @@ export class WakeWordListener {
       void invoke("plugin:phone|start_wake_word").catch(() => {});
       return;
     }
-    type WakeState = { seq?: number; listening?: boolean; preRoll?: string; speech?: boolean };
+    type WakeState = {
+      seq?: number;
+      listening?: boolean;
+      preRoll?: string;
+      speech?: boolean;
+      manual?: boolean;
+      model?: string;
+    };
     let st: WakeState | null = null;
     try {
       st = (await invoke("plugin:phone|poll_wake_word")) as WakeState;
@@ -222,12 +231,16 @@ export class WakeWordListener {
       return; // transient bridge hiccup — just try again next tick
     }
     if (!st || !this.on) return;
+    if (typeof st.model === "string") this.model = st.model;
+    this.syncName();
     const seq = typeof st.seq === "number" ? st.seq : 0;
     if (this.lastSeq < 0) {
       this.lastSeq = seq; // first poll: baseline, don't react to pre-existing detections
     } else if (seq > this.lastSeq) {
       this.lastSeq = seq;
-      void this.onWake(st.preRoll ? { wav: st.preRoll, speech: st.speech !== false } : undefined);
+      void this.onWake(
+        st.preRoll ? { wav: st.preRoll, speech: st.speech !== false, manual: st.manual === true } : undefined,
+      );
       return;
     }
     if (st.listening) {
@@ -244,6 +257,33 @@ export class WakeWordListener {
         );
       }
     }
+  }
+
+  /** Tell the phone which name is chosen (once per change) so it loads the matching model. */
+  private syncName(): void {
+    const want = this.opts.chosenName?.();
+    if (!want || want === this.sentName || this.sendingName) return;
+    this.sendingName = true;
+    invoke("plugin:phone|device_action", {
+      value: 0,
+      query: want,
+      app: "",
+      mode: "",
+      action: "wake_sensitivity",
+    })
+      .then(() => {
+        this.sentName = want;
+      })
+      .catch(() => {})
+      .finally(() => {
+        this.sendingName = false;
+      });
+  }
+
+  /** The names that may wake it right now (undefined = both). */
+  private names(): WakeName[] | undefined {
+    const chosen = this.opts.chosenName?.();
+    return chosen ? acceptedNames(chosen, this.model) : undefined;
   }
 
   private async onWake(clip?: Clip): Promise<void> {
@@ -266,7 +306,7 @@ export class WakeWordListener {
         // The hint is the name alone, never the command prompt's "Hey JARVIS": Whisper can
         // echo its prompt, and an echo of "Jarvis" has no greeting, so it can't pass the
         // wake check on its own.
-        text = await this.transcribeBlob(wav, { prompt: "Jarvis" });
+        text = await this.transcribeBlob(wav, { prompt: "Friday, Jarvis" });
       } catch (e) {
         this.opts.onError?.((e as Error)?.message || String(e));
         return;
@@ -275,9 +315,10 @@ export class WakeWordListener {
       // The on-device model also fires on conversation that only sounds close (live
       // 2026-09-26), and its scores can't tell them apart: genuine wakes on this phone
       // scored as low as 0.37. So a command counts only if "Hey Jarvis" is in the clip.
-      const clean = commandAfterWake(text);
+      // A button press has no wake phrase: the whole clip is the command.
+      const clean = c.manual ? (commandAfterWake(text, this.names()) ?? text.trim()) : commandAfterWake(text, this.names());
       if (clean === null) {
-        console.info(`[wake] ignored — no "Hey Jarvis" in the clip: "${text.slice(0, 60)}"`);
+        console.info(`[wake] ignored — no wake phrase in the clip: "${text.slice(0, 60)}"`);
         return;
       }
       // Drop empty commands and Whisper's stock silence hallucinations ("thank you",
@@ -330,8 +371,8 @@ export class WakeWordListener {
           invoke("plugin:phone|poll_wake_word"),
           POLL_STUCK_MS,
           "wake poll",
-        )) as { preRoll?: string; speech?: boolean } | null;
-        if (st?.preRoll) return { wav: st.preRoll, speech: st.speech !== false };
+        )) as { preRoll?: string; speech?: boolean; manual?: boolean } | null;
+        if (st?.preRoll) return { wav: st.preRoll, speech: st.speech !== false, manual: st.manual === true };
       } catch {
         // try again
       }

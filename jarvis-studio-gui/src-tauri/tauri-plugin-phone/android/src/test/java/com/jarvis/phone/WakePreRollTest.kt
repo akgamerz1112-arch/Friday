@@ -43,6 +43,17 @@ class WakePreRollTest {
     }
 
     @Test
+    fun `quick mode - a shorter pause ends the command sooner`() {
+        val c = CommandCapture(ShortArray(0), 16_000, 650L)
+        var end = -1
+        ("LLLLLLLLLL" + ".".repeat(20)).forEachIndexed { i, ch ->
+            if (end < 0 && c.add(ShortArray(1280), ch == 'L')) end = i
+        }
+        assertTrue(c.speech)
+        assertEquals(9 + 9, end) // 0.72 s after the last loud chunk, vs 13 chunks (1.04 s) normally
+    }
+
+    @Test
     fun `two breaths - a pause after the wake doesn't end it before the command`() {
         // wake tail, ~1.5 s waiting for the beep, then the command.
         val (end, c) = run("LL" + ".".repeat(18) + "LLLLLL" + ".".repeat(20))

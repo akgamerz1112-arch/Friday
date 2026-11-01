@@ -7,7 +7,7 @@
  * reads the context that `gatherFeatureContext()` collected, so it is unit-testable.
  */
 import { sarvamStatus } from "./platform/sarvamTts";
-import { accessibilityStatus, callAnnounceStatus } from "./platform";
+import { accessibilityStatus, callAnnounceStatus, wakeSensitivity } from "./platform";
 import { inTauri } from "./tools/httpClient";
 
 export type FeatureState = "ok" | "warn" | "off";
@@ -25,6 +25,8 @@ export interface FeatureContext {
   accessibility: boolean | null;
   /** Voices the phone's own speech engine reports. */
   speechVoices: number;
+  /** The wake model file the phone loaded (hey_jarvis.onnx / hey_friday.onnx); unknown off-phone. */
+  wakeModel?: string;
 }
 
 export interface FeatureDef {
@@ -64,11 +66,13 @@ export const FEATURES: FeatureDef[] = [
   {
     id: "voice.wake",
     group: "Voice",
-    label: "Wake word (“Hey Jarvis”)",
-    check: ({ sysInfo }) =>
+    label: "Wake word",
+    check: ({ sysInfo, wakeModel }) =>
       sysInfo.wake_word === false
         ? off("Off")
-        : ok("On — the installed model hears “Hey Jarvis”; “Hey Friday” has no model yet"),
+        : wakeModel === "hey_friday.onnx"
+          ? ok("On — the installed model hears “Hey Friday”")
+          : ok("On — the installed model hears “Hey Jarvis”; “Hey Friday” has no model yet"),
   },
   {
     id: "phone.control",
@@ -136,14 +140,15 @@ export async function gatherFeatureContext(sysInfo: Record<string, unknown>): Pr
     /* no speech engine */
   }
   const onPhone = inTauri();
-  const [call, acc] = onPhone
-    ? await Promise.all([callAnnounceStatus(), accessibilityStatus()])
-    : [null, null];
+  const [call, acc, wake] = onPhone
+    ? await Promise.all([callAnnounceStatus(), accessibilityStatus(), wakeSensitivity()])
+    : [null, null, null];
   return {
     sysInfo,
     sarvam: sarvamStatus(),
     call,
     accessibility: acc && typeof acc.enabled === "boolean" ? acc.enabled : null,
     speechVoices,
+    wakeModel: wake?.model,
   };
 }

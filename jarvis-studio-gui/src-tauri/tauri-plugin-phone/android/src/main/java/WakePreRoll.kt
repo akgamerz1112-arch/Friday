@@ -38,7 +38,12 @@ class PreRollRing(private val capacity: Int) {
  * pre-roll, so one clip holds "Hey Jarvis" and the command (one transcription, which also
  * serves as the wake check). Ends on a pause after speech, no speech at all, or a ceiling.
  */
-class CommandCapture(seed: ShortArray, private val sampleRate: Int) {
+class CommandCapture(
+    seed: ShortArray,
+    private val sampleRate: Int,
+    /** How long a pause after speech ends the command (quick mode shortens it). */
+    private val silenceMs: Long = SILENCE_MS,
+) {
     companion object {
         /** The model fires before "Jarvis" has ended; loud audio this soon is its tail. */
         const val GRACE_MS = 300L
@@ -73,7 +78,7 @@ class CommandCapture(seed: ShortArray, private val sampleRate: Int) {
             speech = true
         }
         return ms >= MAX_MS || size == buf.size ||
-            if (speech) ms - lastLoudMs >= SILENCE_MS else ms >= NO_SPEECH_MS
+            if (speech) ms - lastLoudMs >= silenceMs else ms >= NO_SPEECH_MS
     }
 
     fun audio(): ShortArray = buf.copyOf(size)

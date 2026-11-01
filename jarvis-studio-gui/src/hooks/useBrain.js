@@ -50,7 +50,13 @@ import { RemoteScreen } from "../brain/remote/webrtcScreen";
 import { invoke } from "@tauri-apps/api/core";
 import { authenticate, checkStatus } from "@tauri-apps/plugin-biometric";
 import { webSpeechTTS } from "../brain/platform/webspeech";
-import { setSarvamSettings, onSarvamCooldown } from "../brain/platform/sarvamTts";
+import {
+  setSarvamSettings,
+  onSarvamCooldown,
+  isMaleVoice,
+  voiceById,
+  DEFAULT_VOICE,
+} from "../brain/platform/sarvamTts";
 import { MicRecorder, transcribe } from "../brain/platform/stt";
 import { syncWakeWord } from "../brain/platform/wakeword";
 import { syncStopOverlay } from "../brain/platform/stopOverlay";
@@ -1417,6 +1423,28 @@ export function useBrain() {
     storedRef.current = stored;
   }, [stored]);
 
+  // "Jarvis ban jao" / "Friday ban jao": the persona follows the voice's gender, so switch the
+  // saved voice (kept if it already fits) and apply it now, so the very next reply uses it.
+  const onPersona = useCallback((name) => {
+    const prev = storedRef.current;
+    const male = voiceById(prev.sarvamVoice || DEFAULT_VOICE).gender === "m";
+    let voice = prev.sarvamVoice;
+    if (name === "jarvis" && !male) voice = "shubh";
+    if (name === "friday" && male) voice = DEFAULT_VOICE;
+    if (voice === prev.sarvamVoice) return;
+    const next = { ...prev, sarvamVoice: voice };
+    storedRef.current = next;
+    setStored(next);
+    saveStored(next);
+    setSarvamSettings({
+      enabled: next.sarvamTts !== false,
+      apiKey: next.sarvamKey || "",
+      voice: next.sarvamVoice,
+      pace: next.sarvamPace,
+      volume: next.sarvamVolume,
+    });
+  }, []);
+
   // The brain uses a config getter so it always reads the latest credentials without needing recreation.
   const brainRef = useRef(null);
   useEffect(() => {
@@ -1432,6 +1460,7 @@ export function useBrain() {
       shouldStopPhoneTask: () => phoneTaskStopRef.current,
       authorizePhoneAction,
       onDispatched,
+      onPersona,
     });
   }, [
     remote,
@@ -1441,6 +1470,7 @@ export function useBrain() {
     taskPlatform,
     authorizePhoneAction,
     onDispatched,
+    onPersona,
   ]);
 
   const sysInfo = useMemo(() => {
@@ -1481,6 +1511,7 @@ export function useBrain() {
       calendar_sync: stored.calendarSync !== false,
       pc_commands: stored.pcCommands !== false,
       agent_mode: stored.agentMode === true,
+      conversation_mode: stored.conversationMode === true,
       wa_mode: WA_MODES.has(stored.waMode) ? stored.waMode : "off",
       wa_allowed: typeof stored.waAllowed === "string" ? stored.waAllowed : "",
       wa_access: waAccess,
@@ -2320,6 +2351,8 @@ export function useBrain() {
             vertexSaJson: saJson,
             transcribe: (blob, o) => transcribe(blob, { groqKey, vertexSaJson: saJson, ...o }),
             isBusy: () => busyRef.current || listeningRef.current,
+            // The persona is the name: a male voice answers to "Jarvis", the default to "Friday".
+            chosenName: () => (isMaleVoice() ? "jarvis" : "friday"),
             onStatus: (s) => {
               if (s === "listening") setStatus("listening");
               else setStatus((cur) => (cur === "listening" ? "idle" : cur));
@@ -2329,7 +2362,7 @@ export function useBrain() {
               void sendMessage(text);
             },
             onError: (msg) => pushWarning(`Wake word: ${msg}`),
-            onFatal: (msg) => pushWarning(`“Hey Jarvis” stopped: ${msg}`),
+            onFatal: (msg) => pushWarning(`Wake word stopped: ${msg}`),
           }
         : null;
     syncWakeWord(wanted);

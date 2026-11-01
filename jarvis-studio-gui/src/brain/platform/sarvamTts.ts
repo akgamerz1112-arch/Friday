@@ -27,10 +27,12 @@ export interface SarvamVoice {
   id: string;
   label: string;
   model: SarvamModel;
+  /** Absent = female. Male voices make FRIDAY answer as the male "JARVIS" persona. */
+  gender?: "m";
 }
 
 /**
- * Female Hindi voices only. v4-flash personas are `<name>_<language>_<style>` and must
+ * Female Hindi voices first, then male ones (v3). v4-flash personas are `<name>_<language>_<style>` and must
  * match the model; v3 uses short names. Names are from Sarvam's own female list
  * (ritu, priya, simran, shreya, kavya, roopa, suhani…) — pick by ear in Settings ▸ Voice.
  */
@@ -43,6 +45,13 @@ export const SARVAM_VOICES: readonly SarvamVoice[] = [
   { id: "roopa_hi_conversational", label: "Roopa — conversational", model: "bulbul:v4-flash" },
   { id: "priya", label: "Priya — Bulbul v3", model: "bulbul:v3" },
   { id: "suhani", label: "Suhani — Bulbul v3", model: "bulbul:v3" },
+  // Male (Bulbul v3, names from Sarvam's voice list; shubh is their best male voice for Hindi).
+  { id: "shubh", label: "Shubh — male JARVIS (best Hindi)", model: "bulbul:v3", gender: "m" },
+  { id: "rahul", label: "Rahul — male, deep and authoritative", model: "bulbul:v3", gender: "m" },
+  { id: "aditya", label: "Aditya — male, modern and crisp", model: "bulbul:v3", gender: "m" },
+  { id: "rohan", label: "Rohan — male, confident", model: "bulbul:v3", gender: "m" },
+  { id: "amit", label: "Amit — male", model: "bulbul:v3", gender: "m" },
+  { id: "anand", label: "Anand — male, professional", model: "bulbul:v3", gender: "m" },
 ];
 export const DEFAULT_VOICE = "simran_hi_assistant";
 /** Used once, automatically, if the selected v4 voice is refused (bad model/speaker). */
@@ -94,6 +103,11 @@ export function normalizeSarvamSettings(s: Partial<SarvamSettings> | undefined):
     pace: num(s?.pace, MIN_PACE, MAX_PACE, 1),
     volume: num(s?.volume, MIN_VOLUME, 1, 1),
   };
+}
+
+/** True when the selected voice is a male one (FRIDAY then speaks as the male JARVIS). */
+export function isMaleVoice(): boolean {
+  return voiceById(settings.voice).gender === "m";
 }
 
 export function voiceById(id: string): SarvamVoice {

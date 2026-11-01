@@ -60,6 +60,35 @@
         tools:ignore="ProtectedPermissions" />
 
     <application>
+        <!-- FRIDAY as the phone's Digital assistant app (FridayAssistant.kt): the side-key long
+             press / headset button / assist gesture then start a command recording. Picked by
+             the user in Settings > Apps > Default apps > Digital assistant app. -->
+        <service
+            android:name="com.jarvis.phone.FridayInteractionService"
+            android:exported="true"
+            android:label="FRIDAY"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/friday_voice_interaction" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="com.jarvis.phone.FridaySessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+        <service
+            android:name="com.jarvis.phone.FridayRecognitionService"
+            android:exported="true"
+            android:label="FRIDAY">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
         <!-- The JARVIS accessibility service. Enabled by the user in Settings ▸
              Accessibility (it cannot be granted programmatically). The manifest
              merger folds this into the app's final manifest. -->

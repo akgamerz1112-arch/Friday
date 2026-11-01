@@ -362,6 +362,58 @@ export function callAnnounceStatus(): Promise<CallAnnounceState | null> {
   return phoneJson("device_action", { ...DEVICE_KEYS, action: "call_announce_status" });
 }
 
+/** Wake-word settings kept on the phone: normal | high | max, optionally + ",quick" / ",slow"
+ *  (how fast a pause ends the command) and "friday" / "jarvis" (the name, which picks the model).
+ *  "" just reads them; `model` is the wake model in use. */
+export function wakeSensitivity(
+  level = "",
+): Promise<{ level?: string; quick?: boolean; name?: string; model?: string } | null> {
+  return phoneJson("device_action", { ...DEVICE_KEYS, action: "wake_sensitivity", query: level });
+}
+
+/** Switch FRIDAY's own accessibility service off (Google Pay refuses to run with it on). */
+export function pauseAppControl(): Promise<{ ok?: boolean; summary?: string } | null> {
+  return phoneJson("device_action", { ...DEVICE_KEYS, action: "accessibility_off" });
+}
+
+export interface ScreenText {
+  ok: boolean;
+  app: string;
+  text: string;
+  /** not_available | app_control_off | own_screen | empty */
+  reason?: string;
+}
+
+/** The text on the screen in front (accessibility tree: ~30 ms, no screenshot, no vision model).
+ *  Codes (OTP etc.) are masked. Needs App control (Accessibility) on. */
+export async function readScreenText(maxChars = 2500): Promise<ScreenText> {
+  const r = await phoneJson<{
+    app?: string;
+    ready?: boolean;
+    nodes?: Array<{ text?: string; description?: string }>;
+  }>("observe", {});
+  if (!r) return { ok: false, app: "", text: "", reason: "not_available" };
+  const app = String(r.app ?? "");
+  if (r.ready === false) return { ok: false, app, text: "", reason: "app_control_off" };
+  if (app.includes("com.jarvis.app")) return { ok: false, app, text: "", reason: "own_screen" };
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const n of r.nodes ?? []) {
+    const t = String(n.text || n.description || "").trim();
+    if (t && !seen.has(t)) {
+      seen.add(t);
+      lines.push(t);
+    }
+  }
+  const text = redactCodes(lines.join("\n")).slice(0, maxChars);
+  return text ? { ok: true, app, text } : { ok: false, app, text: "", reason: "empty" };
+}
+
+/** Open Android's Accessibility settings (to turn app control back on). */
+export function openAccessibilitySettingsScreen(): Promise<unknown> {
+  return phoneJson("open_accessibility_settings", {});
+}
+
 /** Is the accessibility service (phone control) on? Null off-device. */
 export function accessibilityStatus(): Promise<{ enabled?: boolean } | null> {
   return phoneJson("is_enabled", {});

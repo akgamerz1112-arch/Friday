@@ -746,11 +746,13 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
         val seq = WakeWordService.wakeSeq.get()
         res.put("seq", seq)
         res.put("listening", WakeWordService.isListening)
+        res.put("model", WakeWordManager.loadedModel)
         // Once the command after the wake has ended, a poll also carries the clip (wake +
         // command, up to ~13 s / ~550 KB, sent once) for wakeword.ts to transcribe.
         WakeWordService.takePreRoll(seq)?.let {
             res.put("preRoll", it.wavBase64)
             res.put("speech", it.speech)
+            res.put("manual", it.manual)
         }
         invoke.resolve(res)
     }

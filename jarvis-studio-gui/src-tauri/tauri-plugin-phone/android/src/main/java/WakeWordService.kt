@@ -82,7 +82,7 @@ class WakeWordService : Service() {
         /** Detection [seq]'s clip — the wake plus the command after it — as a base64 WAV,
          *  for wakeword.ts to transcribe. [speech] is false when nothing past the wake word
          *  sounded like speech. In memory only; handed out once, or replaced by the next. */
-        class PreRoll(val seq: Int, val wavBase64: String, val speech: Boolean)
+        class PreRoll(val seq: Int, val wavBase64: String, val speech: Boolean, val manual: Boolean = false)
 
         private var lastPreRoll: PreRoll? = null
 
@@ -107,6 +107,15 @@ class WakeWordService : Service() {
          *  failed 100% of the time until this was made non-blocking. */
         @Volatile
         var onStartResult: ((Boolean, String?) -> Unit)? = null
+
+        /** The assistant button was pressed: start recording a command now. False when the
+         *  engine isn't running (wake word off, or still starting). */
+        fun manualWake(): Boolean = instance?.manager?.manualTrigger() ?: false
+
+        /** The chosen name changed: reload so the matching model is used (never mid-command). */
+        fun reloadModel() {
+            instance?.recycleEngine()
+        }
 
         /** Start (or no-op if already running) the wake-word foreground service. */
         fun launch(context: Context) {
@@ -185,12 +194,13 @@ class WakeWordService : Service() {
         },
         // Arrives once the command after its detection has ended (or the engine stops), for
         // the wake that detection counted — one detection at a time, both on the main thread.
-        onClip = { audio, speech ->
+        onClip = { audio, speech, manual ->
             offerPreRoll(
                 PreRoll(
                     wakeSeq.get(),
                     android.util.Base64.encodeToString(pcm16Wav(audio, 16_000), android.util.Base64.NO_WRAP),
                     speech,
+                    manual,
                 ),
             )
         },
@@ -245,6 +255,8 @@ class WakeWordService : Service() {
             if (ok) {
                 manager = mgr
                 scheduleRecycle()
+                // The assistant button launched the app cold: the press is waiting for the engine.
+                if (AssistInbox.consumeFresh()) mgr.manualTrigger()
                 val cb = onStartResult
                 onStartResult = null
                 cb?.invoke(true, null)
@@ -290,7 +302,7 @@ class WakeWordService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(applicationInfo.icon)
             .setContentTitle("FRIDAY is listening")
-            .setContentText("Say “Hey Jarvis” any time — tap Stop to turn this off")
+            .setContentText("Say “${WakeWordManager.phrase(this)}” any time — tap Stop to turn this off")
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .apply { if (contentPending != null) setContentIntent(contentPending) }
@@ -305,7 +317,7 @@ class WakeWordService : Service() {
                 CHANNEL_ID,
                 "Wake word listening",
                 NotificationManager.IMPORTANCE_LOW,
-            ).apply { description = "Shown while FRIDAY is listening for \"Hey Jarvis\"." }
+            ).apply { description = "Shown while FRIDAY is listening for its wake word." }
             nm.createNotificationChannel(channel)
         }
     }

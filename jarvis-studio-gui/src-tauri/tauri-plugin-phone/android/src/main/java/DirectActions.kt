@@ -156,8 +156,41 @@ internal object DirectActions {
                 "play" -> play(act, a.query, a.app)
                 "call_announce_config" -> callAnnounceConfig(act, a.query)
                 "call_announce_status" -> callAnnounceStatus(act)
+                "accessibility_off" -> accessibilityOff()
+                "wake_sensitivity" -> wakeSensitivity(act, a.query)
                 else -> res(false, "I don't know the device action '${a.action}'.")
             }
+        }
+    }
+
+    /** Google Pay and some banking apps refuse to run while ANY accessibility service is on.
+     *  An app can switch its own service off (never back on: Android needs the user for that). */
+    private fun accessibilityOff(): JSObject {
+        val svc = JarvisAccessibilityService.instance
+            ?: return res(true, "App control was already off.")
+        svc.disableSelf()
+        return res(true, "App control is off. Turn it back on in Settings > Accessibility when you are done.")
+    }
+
+    /** "normal" | "high" | "max", optionally followed by ",quick" or ",slow" (how fast a
+     *  pause ends the command); "" = just report. */
+    private fun wakeSensitivity(ctx: Context, query: String): JSObject {
+        val parts = query.split(",").map { it.trim() }
+        // "normal" | "high" | "max" is the first part; the rest are flags.
+        if (parts[0] in listOf("normal", "high", "max")) WakeWordManager.setSensitivity(ctx, parts[0])
+        if (parts.contains("quick")) WakeWordManager.setQuickEnd(ctx, true)
+        if (parts.contains("slow")) WakeWordManager.setQuickEnd(ctx, false)
+        val name = parts.firstOrNull { it == "friday" || it == "jarvis" }
+        if (name != null && name != WakeWordManager.wakeName(ctx)) {
+            val before = WakeWordManager.modelAsset(ctx)
+            WakeWordManager.setWakeName(ctx, name)
+            if (WakeWordManager.modelAsset(ctx) != before) WakeWordService.reloadModel()
+        }
+        return res(true, "Wake sensitivity: ${WakeWordManager.sensitivity(ctx)}").apply {
+            put("level", WakeWordManager.sensitivity(ctx))
+            put("quick", WakeWordManager.quickEnd(ctx))
+            put("name", WakeWordManager.wakeName(ctx))
+            put("model", WakeWordManager.loadedModel)
         }
     }
 
