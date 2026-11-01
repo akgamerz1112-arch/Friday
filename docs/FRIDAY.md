@@ -232,3 +232,6 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   (phase 14) matched "turn on DND" inside it and ran only that, skipping the other steps (and failing
   `index.test.ts › ask with display text`). `brain/index.ts` now skips instant commands when display text is present.
   Typed or spoken commands (no display text) are unchanged.
+- **Build fix (v18):** the `phone_command!` macro in `commands.rs` built `FileOpRequest { uri, path }`, which no longer compiled once the
+  struct gained `base64`. `list_directory` and `read_file` are now written out by hand (`base64` is an optional argument).
+  Not compiled here (no Rust toolchain in the sandbox) — the Build APK run is the first real compile.
