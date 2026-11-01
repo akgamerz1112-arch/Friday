@@ -228,3 +228,7 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
 - Tested here: 10 unit cases plus real files made with python-docx/openpyxl/python-pptx (run in Node).
   **Not tested here:** the Kotlin/Rust build, vitest in CI, and reading a file on the phone.
 - Device check: Settings ▸ Storage & Privacy → grant a folder with a .docx/.xlsx/.pptx → "<file> padho".
+- **CI fix (v17):** a routine run sends one prompt with several steps plus separate display text. The instant-command matcher
+  (phase 14) matched "turn on DND" inside it and ran only that, skipping the other steps (and failing
+  `index.test.ts › ask with display text`). `brain/index.ts` now skips instant commands when display text is present.
+  Typed or spoken commands (no display text) are unchanged.

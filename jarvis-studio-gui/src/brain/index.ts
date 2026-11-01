@@ -261,8 +261,10 @@ export function createBrain(opts: BrainOptions = {}): Brain {
         `user's language. No tools needed.]\n${scr.text}`;
     }
 
-    // Instant phone switches (torch, volume, time…) run without any model call.
-    if (!scope && !images?.length) {
+    // Instant phone switches (torch, volume, time…) run without any model call. Not for a turn that
+    // carries separate display text (a routine run): its prompt lists several steps, and a phrase
+    // like "turn on DND" inside it would otherwise run alone and silently skip the rest.
+    if (!scope && !images?.length && display === undefined) {
       const fast = matchFastCommand(text);
       if (fast?.type === "say") {
         await memory.appendTurn({ role: "user", content: text, display });
