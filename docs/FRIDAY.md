@@ -170,3 +170,6 @@ Cause of "update nahi hota, pehle delete karna padta": Build APK makes a DEBUG a
 
 ## CI fix (after phases 8-10 push)
 Typecheck passed; 3 old tests failed and are fixed: fastCommands music switch now only for short orders (<=4 words, so "play some music by Arijit" goes to the model); wakeword.test.ts updated for the Friday wake prompt ("Friday, Jarvis") and for the `manual` flag in the onWake argument. Re-run CI to confirm (not run here; only the music case checked with node).
+
+## Build APK fix
+Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 did not hold a valid keystore. The step now cleans whitespace, checks the keystore with keytool, and on a bad secret only warns (build still runs, random key).
