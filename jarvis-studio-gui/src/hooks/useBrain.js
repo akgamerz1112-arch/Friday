@@ -52,6 +52,8 @@ import { authenticate, checkStatus } from "@tauri-apps/plugin-biometric";
 import { webSpeechTTS } from "../brain/platform/webspeech";
 import {
   setSarvamSettings,
+  sarvamUsable,
+  speakWithSarvam,
   onSarvamCooldown,
   isMaleVoice,
   voiceById,
@@ -2369,18 +2371,6 @@ export function useBrain() {
     return undefined; // singleton owns lifecycle across re-renders — no teardown here
   }, [alwaysOn, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning]);
 
-  // Speak a line via device TTS (unless muted). Used by the greeting + anywhere we
-  // talk outside the sendMessage flow. Never gets the status stuck.
-  const speak = useCallback(async (text) => {
-    if (mutedRef.current || !text) return;
-    try {
-      setStatus("speaking");
-      await webSpeechTTS.speak(text);
-    } finally {
-      if (!busyRef.current && !listeningRef.current) setStatus("idle");
-    }
-  }, []);
-
   // ── Greeting ────────────────────────────────────────────────────────────────
   // FRIDAY introduces herself once, as soon as a key is configured (desktop greets
   // from the backend; on the phone there's none, so the brain greets itself).
@@ -2388,14 +2378,22 @@ export function useBrain() {
   useEffect(() => {
     if (greetedRef.current || !hasKey) return;
     greetedRef.current = true;
-    const hour = new Date().getHours();
-    const part = hour < 12 ? "सुप्रभात" : hour < 18 ? "नमस्कार" : "शुभ संध्या";
-    const text = `${part}, सर। मैं FRIDAY हूँ, आपकी सेवा में हाज़िर। बताइए, मैं कैसे मदद करूँ?`;
+    const text = "हे बॉस!";
     setMessages((prev) =>
       prev.length ? prev : [{ role: "jarvis", text, actions: [], finalized: true, id: uid() }],
     );
-    void speak(text);
-  }, [hasKey, speak]);
+    // Sarvam voice ONLY. Wait (up to ~5 s) for the saved Sarvam key to load; if Sarvam is not
+    // usable or fails, stay silent — never greet in the phone's own voice first.
+    void (async () => {
+      for (let i = 0; i < 25 && !sarvamUsable(); i++) await new Promise((r) => setTimeout(r, 200));
+      if (!sarvamUsable() || mutedRef.current) return;
+      try {
+        await speakWithSarvam(text);
+      } catch {
+        /* silent */
+      }
+    })();
+  }, [hasKey]);
 
   // ── Live HUD panels (battery / network / weather) ────────────────────────────
   // Real device signals so the Power, Network and Weather panels aren't dead zeros.

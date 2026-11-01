@@ -387,7 +387,7 @@ export default function Settings({
   const changeDrive = (on) => {
     setDriveOn(on);
     setWakeLevel(on ? "high" : "normal");
-    void wakeSensitivity(on ? "high,quick" : "normal,slow");
+    void wakeSensitivity(on ? "high,quick" : "normal,quick");
     if (on) {
       setSarvamVolume(1);
       setSarvamPace(1);

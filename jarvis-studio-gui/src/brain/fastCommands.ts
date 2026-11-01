@@ -103,7 +103,11 @@ export function matchFastCommand(raw: string, now: Date = new Date()): FastComma
   if (/(vibrate|वाइब्रेट)/i.test(t) && /(mode|मोड|kar|कर|on|chalu)/i.test(t))
     return { type: "device", action: "ringer_vibrate", value: 0, say: "फ़ोन वाइब्रेट पर कर दिया।" };
 
-  if (/(music|gaana|gana|song|गाना|गाने|म्यूज़िक|म्यूजिक)/i.test(t) || /^(next|previous|pause|resume)( song| track)?$/.test(t)) {
+  // Short orders only: "play some music by Arijit" is a request for the model, not a switch.
+  if (
+    t.split(/\s+/).length <= 4 &&
+    (/(music|gaana|gana|song|गाना|गाने|म्यूज़िक|म्यूजिक)/i.test(t) || /^(next|previous|pause|resume)( song| track)?$/.test(t))
+  ) {
     if (/(next|agla|अगला)/i.test(t)) return { type: "device", action: "media_next", value: 0, say: "अगला गाना।" };
     if (/(previous|pichla|पिछला)/i.test(t)) return { type: "device", action: "media_previous", value: 0, say: "पिछला गाना।" };
     if (/(pause|roko|ruk|रोको|रुको)/i.test(t)) return { type: "device", action: "media_pause", value: 0, say: "रोक दिया।" };

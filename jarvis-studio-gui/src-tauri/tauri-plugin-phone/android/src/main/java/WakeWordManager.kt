@@ -77,7 +77,7 @@ class WakeWordManager(
         private const val MODEL_JARVIS = "hey_jarvis.onnx"
         /** Quick mode: a 0.65 s pause ends the command (normal is 1 s) — the reply starts
          *  sooner. For the car; a slow speaker's mid-sentence pause can get cut. */
-        private const val QUICK_SILENCE_MS = 650L
+        private const val QUICK_SILENCE_MS = 750L
         @Volatile private var silenceMs = CommandCapture.SILENCE_MS
 
         /** The model the engine last loaded (what JS is told, so it knows which name can wake). */
@@ -111,7 +111,7 @@ class WakeWordManager(
         fun phrase(ctx: Context): String = if (modelAsset(ctx) == MODEL_FRIDAY) "Hey Friday" else "Hey Jarvis"
 
         fun quickEnd(ctx: Context): Boolean =
-            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE).getBoolean("quick", false)
+            ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE).getBoolean("quick", true)
 
         fun setQuickEnd(ctx: Context, on: Boolean) {
             ctx.applicationContext.getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE)

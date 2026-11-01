@@ -135,3 +135,38 @@ on "Friday", so nothing reaches the app. Before this phase the Whisper check als
 - Settings ▸ Apps ▸ Default apps ▸ Digital assistant app: is FRIDAY listed? Pick it. Long press the side key: beep, then speak "time kya hua".
 - Same press with the app closed, and with the wake word switched off in FRIDAY (expect the app to open).
 - Say "Jarvis ban jao": does the voice become male and the next "Hey Jarvis" still wake? Then "Friday ban jao".
+
+
+## Phase 8 — Hindi listening fix, silent launch
+Cause of "sahi se sun nahi pata / task nahi karta": speech-to-text was forced to English (Groq `language=en`, Vertex `en-US`), so Hindi was turned into wrong English text.
+- stt.ts: Groq now `language=hi` with a Hinglish prompt; Vertex Chirp `hi-IN`; Hindi stock "thank you" hallucinations screened.
+- wakePhrase.ts / wakeword.ts: "हे जार्विस" / "हे फ्राइडे" in Devanagari now count as a wake and the command is cut after it. New tests in wakeword.test.ts.
+- useBrain.js: no spoken greeting on app launch (text bubble stays).
+- Not compiled or run here. Only the wake regexes were checked with node.
+
+### Phase 8 device checks
+- CI green? Then say "Hey Jarvis, torch chalu karo" and "Hey Jarvis, kitne baje hain" without touching the mic button.
+- Button mic: Hindi sentence, check the bubble shows correct Hindi text.
+- App open: no voice should play at launch.
+
+
+## Phase 9 — greeting voice, faster command end
+- Launch greeting is now just "हे बॉस!", spoken with Sarvam ONLY (waits up to ~5 s for the saved key; silent if Sarvam is unusable, never the phone's own voice).
+- Wake phrase: "Jarvis, ..." / "जार्विस, ..." as the first word now counts; "है जार्विस" too.
+- Command end: the native silence wait is now 750 ms by default (was 1000 ms); driving-mode off returns to "normal,quick".
+- Still the main waits: Whisper upload, then the Sarvam round trip before the reply is heard. Not measured here. Not compiled or run.
+
+### Phase 9 device checks
+- App open: only "हे बॉस" in the Sarvam voice, no other voice before it.
+- "Jarvis, torch chalu karo" (name first) and "Hey Jarvis" + pause + command: wake without the button?
+- Does the command get cut in the middle when you pause while speaking? If yes, tell me (silence 750 ms is too short).
+
+## Phase 10 — updates over the old app
+Cause of "update nahi hota, pehle delete karna padta": Build APK makes a DEBUG apk, and every GitHub runner makes a brand-new random debug key, so each APK has a different signature and Android refuses to update.
+- build-apk.yml: new step puts a FIXED keystore (secret ANDROID_KEYSTORE_BASE64) at ~/.android/debug.keystore before the build. Without the secret it warns and behaves as before.
+- scripts/make-keystore.sh (Termux): makes the key once (alias androiddebugkey, password android), copies it as base64 for the secret. Back up ~/friday.keystore.
+- ONE last uninstall is needed (the app on the phone has an old random key). After that every build updates in place.
+- Not run on GitHub here; recipe checked locally (keytool + base64 round trip).
+
+## CI fix (after phases 8-10 push)
+Typecheck passed; 3 old tests failed and are fixed: fastCommands music switch now only for short orders (<=4 words, so "play some music by Arijit" goes to the model); wakeword.test.ts updated for the Friday wake prompt ("Friday, Jarvis") and for the `manual` flag in the onWake argument. Re-run CI to confirm (not run here; only the music case checked with node).

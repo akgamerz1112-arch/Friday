@@ -214,7 +214,7 @@ describe("the one-clip command", () => {
     // The hint is the name alone: the command prompt names "Hey JARVIS", and Whisper can
     // echo its prompt on noise — which would pass every false wake.
     const [blob, o] = transcribe.mock.calls[0]!;
-    expect(o).toEqual({ prompt: "Jarvis" });
+    expect(o).toEqual({ prompt: "Friday, Jarvis" });
     expect(blob.type).toBe("audio/wav");
   });
 
@@ -284,7 +284,7 @@ describe("polling", () => {
     (l as unknown as { lastSeq: number }).lastSeq = 4;
     answer({ seq: 5, listening: true, preRoll: "UklGRg==" });
     await first;
-    expect(onWake).toHaveBeenCalledWith({ wav: "UklGRg==", speech: true });
+    expect(onWake).toHaveBeenCalledWith({ wav: "UklGRg==", speech: true, manual: false });
   });
 
   it("gives up on a poll the bridge never answered", async () => {
@@ -295,5 +295,24 @@ describe("polling", () => {
     await vi.advanceTimersByTimeAsync(3_100);
     void pollOf(l)();
     expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("Hindi (Devanagari) wake transcripts", () => {
+  it("hears Hey Jarvis / Hey Friday written in Devanagari and finds the command end", () => {
+    expect(heardWakePhrase("हे जार्विस टॉर्च चालू करो")).toBe(true);
+    expect(heardWakePhrase("हे फ्राइडे वॉल्यूम बढ़ाओ")).toBe(true);
+    expect(commandAfterWake("हे जार्विस टॉर्च चालू करो")).toBe("टॉर्च चालू करो");
+  });
+  it("does not wake on someone talking ABOUT Jarvis", () => {
+    expect(heardWakePhrase("मेरा जार्विस ऐप अच्छा है")).toBe(false);
+  });
+});
+
+describe("name as the first word", () => {
+  it("counts Jarvis spoken first, in Latin or Devanagari", () => {
+    expect(commandAfterWake("Jarvis, torch on")).toBe("torch on");
+    expect(commandAfterWake("जार्विस टॉर्च चालू करो")).toBe("टॉर्च चालू करो");
+    expect(heardWakePhrase("my Jarvis app")).toBe(false);
   });
 });

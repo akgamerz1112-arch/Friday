@@ -14,7 +14,11 @@ const GROQ_STT_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const WHISPER_MODEL = "whisper-large-v3";
 // Biases spelling/vocabulary toward assistant commands. Whisper can echo its prompt
 // on near-silence, so isNoiseTranscript() screens an exact echo.
-const WHISPER_PROMPT = "Hey JARVIS, a voice command for a phone assistant.";
+const WHISPER_PROMPT =
+  "Hey Friday, Hey Jarvis. Hindi aur English mix: torch chalu karo, volume kam karo, WhatsApp kholo, mummy ko call karo.";
+// FRIDAY is Hindi-first. Forcing English made Whisper turn Hindi speech into garbage,
+// so Hindi is forced instead; English words in a Hinglish sentence still come through.
+const STT_LANGUAGE = "hi";
 
 /** The first recording container the WebView supports (Whisper accepts all). */
 function pickRecordMime(): string {
@@ -112,7 +116,7 @@ export async function transcribeWithGroq(
   form.append("file", blob, `speech.${ext}`);
   form.append("model", WHISPER_MODEL);
   form.append("response_format", "json");
-  form.append("language", "en");
+  form.append("language", STT_LANGUAGE);
   form.append("temperature", "0");
   if (prompt) form.append("prompt", prompt);
 
@@ -149,7 +153,7 @@ export async function transcribeWithVertex(
     config: {
       autoDecodingConfig: {},
       model: "chirp_2",
-      languageCodes: ["en-US"],
+      languageCodes: ["hi-IN"],
       features: { enableAutomaticPunctuation: true },
     },
     content: audioBase64,
@@ -260,10 +264,17 @@ const HALLUCINATION_PHRASES = new Set([
   "[applause]",
   "you're welcome",
   "see you next time",
+  "धन्यवाद",
+  "शुक्रिया",
+  "देखने के लिए धन्यवाद",
+  "वीडियो देखने के लिए धन्यवाद",
+  "अलविदा",
+  "सब्स्क्राइब करें",
 ]);
 
 // The wake word may already be stripped, so match the prompt's tail.
-const PROMPT_ECHO = /^(hey jarvis )?a voice command for a phone assistant$/;
+const PROMPT_ECHO =
+  /^(hey jarvis )?a voice command for a phone assistant$|^hey friday hey jarvis hindi aur english mix/;
 
 export function isNoiseTranscript(text: string): boolean {
   const norm = (text || "")

@@ -16,7 +16,8 @@ import { inTauri } from "../tools/httpClient";
 import { base64ToBytes } from "../tools/base64";
 import { acceptedNames, lastWakeEnd, type WakeName } from "./wakePhrase";
 
-const WAKE = /\b(?:hey\s+|ok(?:ay)?\s+|hi\s+)?j[ae][rv]+i[s5]\b/i;
+const WAKE =
+  /\b(?:hey\s+|ok(?:ay)?\s+|hi\s+)?j[ae][rv]+i[s5]\b|(?:^|[\s,.!?।-])(?:हे|हेय|हाय|हैलो|हेलो|ओके|अरे|सुनो|ए)?[\s,.!?।-]*(?:जा?र्?व[िी][सश]|फ्रा[इईय]डे)/i;
 
 export { heardWakePhrase } from "./wakePhrase";
 

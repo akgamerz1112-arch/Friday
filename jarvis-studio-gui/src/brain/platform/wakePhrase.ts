@@ -17,8 +17,19 @@ const GREET = String.raw`(?:hey|hi|hay|hei|ay|eh|kay|ok(?:ay)?|hello|yo|arre?|su
 const FRI = String.raw`fr[iy]\s?-?d(?:ay|ey|ae|e)`;
 // \b is ASCII-only in JS, so Devanagari uses explicit separators instead.
 const SEP = String.raw`(?:^|[\s,.!?।-])`;
-const DEV_GREET = String.raw`(?:हे|हेय|हाय|हैलो|ओके|ओ\s?के|अरे|सुनो|ए)`;
+const DEV_GREET = String.raw`(?:हे|हेय|हाय|हैलो|हेलो|है|ओके|ओ\s?के|अरे|सुनो|ए)`;
 const DEV_FRI = String.raw`फ्रा[इईय]डे`;
+
+const DEV_JARVIS = String.raw`जा?र्?व[िी][सश]`;
+/** Hindi recognition writes "Hey Jarvis" in Devanagari. A greeting is required, as in Latin. */
+export const JARVIS_DEVANAGARI = new RegExp(String.raw`${SEP}${DEV_GREET}[\s,.!?।-]*${DEV_JARVIS}`);
+
+/** "Jarvis, torch chalu karo": the name as the first word of the clip (the model already fired, and
+ *  the clip starts at the pre-roll, so this is the wake itself). Latin and Devanagari. */
+export const JARVIS_FIRST = new RegExp(
+  String.raw`^[\s,.!?-]*(?:(?:j|ch|tr)[ae]r?v[aeiu]s\b|${DEV_JARVIS})(?=[\s,.!?।-]|$)`,
+  "i",
+);
 
 /** "Hey Friday" in Latin script. */
 export const FRIDAY_GREETED = new RegExp(String.raw`\b${GREET}\b[\s,.!-]*${FRI}\b`, "i");
@@ -31,7 +42,7 @@ export const FRIDAY_FIRST = new RegExp(String.raw`^[\s,.!?-]*${FRI}\b(?=[\s,.!?-
 export type WakeName = "friday" | "jarvis";
 const BOTH: readonly WakeName[] = ["friday", "jarvis"];
 const SETS: Record<WakeName, RegExp[]> = {
-  jarvis: [JARVIS_PHRASE],
+  jarvis: [JARVIS_PHRASE, JARVIS_DEVANAGARI, JARVIS_FIRST],
   friday: [FRIDAY_GREETED, FRIDAY_DEVANAGARI, FRIDAY_FIRST],
 };
 const patternsFor = (names: readonly WakeName[]) => names.flatMap((n) => SETS[n]);
