@@ -235,3 +235,8 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
 - **Build fix (v18):** the `phone_command!` macro in `commands.rs` built `FileOpRequest { uri, path }`, which no longer compiled once the
   struct gained `base64`. `list_directory` and `read_file` are now written out by hand (`base64` is an optional argument).
   Not compiled here (no Rust toolchain in the sandbox) — the Build APK run is the first real compile.
+
+## Phase 17 — Live voice (beta) (see docs/VOICE_AUDIT.md)
+- New, separate path: Settings ▸ Voice ▸ *Live voice (beta)*. `src/brain/live/*` + `components/LivePanel.jsx`; `useBrain` only adds
+  `getLiveContext` / `saveLiveTurn`. Old voice path unchanged.
+- 19 unit cases pass in Node (protocol, session reconnect/resume/goAway, pcm, prompt). Nothing audio-related is tested on a phone yet.

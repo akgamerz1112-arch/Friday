@@ -10,6 +10,7 @@ import RemoteDesktop from "./components/RemoteDesktop";
 import SetupProgress from "./components/SetupProgress";
 import BootOverlay from "./components/BootOverlay";
 import Customize from "./components/Customize";
+import LivePanel from "./components/LivePanel";
 import AgentActivity from "./components/AgentActivity";
 import CommandPalette from "./components/CommandPalette";
 import { agentById, agentsFor } from "./brain/agents";
@@ -119,6 +120,8 @@ export default function App() {
     dismissWarning,
     clearAgentTasks,
     sendConfig,
+    getLiveContext,
+    saveLiveTurn,
     refreshModels,
     rerankModels,
     repairSetup,
@@ -188,6 +191,7 @@ export default function App() {
   const [powerOpen, setPowerOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false); // Remote-PC pairing (mobile)
   const openRemote = useCallback(() => setRemoteOpen(true), []);
@@ -1003,6 +1007,10 @@ export default function App() {
             setShowSettings(false);
             setCustomizeOpen(true);
           }}
+          onOpenLive={() => {
+            setShowSettings(false);
+            setLiveOpen(true);
+          }}
         />
       )}
 
@@ -1018,6 +1026,10 @@ export default function App() {
         <div key={toast.id} className="hud-toast" role="status">
           {toast.text}
         </div>
+      )}
+
+      {liveOpen && (
+        <LivePanel getContext={getLiveContext} saveTurn={saveLiveTurn} onClose={() => setLiveOpen(false)} />
       )}
 
       {customizeOpen && (

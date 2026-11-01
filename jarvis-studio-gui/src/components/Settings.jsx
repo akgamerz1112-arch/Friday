@@ -307,6 +307,7 @@ export default function Settings({
   onRerankModels,
   onRepairSetup,
   onOpenCustomize,
+  onOpenLive,
 }) {
   // Re-discover models when the panel opens so the dropdown is current (e.g. a
   // local Ollama model pulled since launch, or a key just added in another client).
@@ -1064,6 +1065,15 @@ export default function Settings({
         <span className="sp-value sp-mono">{wakeModel.replace(".onnx", "")}</span>
       </div>
     </Group>
+    {IS_MOBILE && onOpenLive && (
+      <Group title="Live voice (beta)">
+        <ActionRow
+          title="Talk live"
+          desc="Speak straight to Gemini Live: faster, interruptible. Conversation only, no phone control yet."
+          onClick={onOpenLive}
+        />
+      </Group>
+    )}
     {IS_MOBILE && (
       <Group title="Natural Hindi voice (Sarvam)">
         <Toggle

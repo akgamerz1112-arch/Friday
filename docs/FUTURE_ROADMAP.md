@@ -23,6 +23,7 @@ been tested on the phone (see `docs/STATUS.md`).
 | # | Feature | Status in code | Verdict |
 |---|---|---|---|
 | 0 | Wake word + reply speed (not on the 20 list) | phases 6–15 added Friday phrase check, assistant button, quick end, speed timing; a trained `hey_friday.onnx` is still missing | Continue from device logs (`docs/FRIDAY.md` phases 12–15), not from this roadmap |
+| 0b | Realtime Live voice (Gemini Live) | beta built in v19 (`src/brain/live`), conversation only, untested on phone | Test, then add tools |
 | 9 | Document intelligence | text files only → **Word/Excel/PowerPoint added in v16**, PDF open | **Step 1 done** |
 | 18 | Customizable personality | rename by voice + male/female persona exist (phase 7); tone/style options do not | **Next** — small: tone presets only |
 | 10 + 19 | Daily briefing + proactive reminders | routines, reminders, call/WhatsApp announcer exist | **Next** — polish, little new code |
