@@ -633,37 +633,6 @@ export default function App() {
         },
       ),
       cmd("settings", "Menus", "Settings", "settings", () => openSettings()),
-      cmd(
-        "agent-mode",
-        "Assistant",
-        sysInfo.agent_mode ? "Switch to simple mode" : "Switch to agent mode",
-        "route",
-        toggleAgents,
-        {
-          keywords: "agents agent mode simple coordinator specialist",
-          state: sysInfo.agent_mode ? "Agents" : null,
-        },
-      ),
-      ...agentsFor(pcPaired).map((a) =>
-        cmd(
-          `agent-${a.id}`,
-          "Assistant",
-          a.id === "auto" ? "Agents: let FRIDAY pick (Auto)" : `Agents: use the ${a.name} agent`,
-          "route",
-          () => {
-            pickAgent(a.id);
-            notify(
-              a.id === "auto"
-                ? "Auto: FRIDAY picks the agents"
-                : `${agentById(a.id).name} agent: your requests go to it`,
-            );
-          },
-          {
-            keywords: `agent ${a.name} @${a.handle} ${a.hint}`,
-            state: sysInfo.agent_mode && (activeAgent || "auto") === a.id ? "On" : null,
-          },
-        ),
-      ),
       cmd("listen", "Voice", "Start listening", "mic", triggerListen, {
         keywords: "talk speak microphone",
       }),
