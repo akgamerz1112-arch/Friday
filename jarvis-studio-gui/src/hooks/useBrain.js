@@ -2705,16 +2705,21 @@ export function useBrain() {
 
   // Mirror useWebSocket's return shape exactly so the HUD works unchanged. Fields
   // that have no phone meaning (yet) return inert defaults.
-  // Live voice (beta): the first Gemini key and a short list of remembered facts. Nothing else is shared with it.
+  // Live voice (beta): the Gemini keys (first = primary; the rest are used only when it hits its limit) and a short list of remembered facts. Nothing else is shared with it.
   const getLiveContext = useCallback(async () => {
-    const apiKey = String(stored.geminiKey || "").split(/[\n,]/)[0].trim();
+    const apiKeys = [];
+    for (const part of String(stored.geminiKey || "").split(/[\n,]/)) {
+      const k = part.trim();
+      if (k && !apiKeys.includes(k)) apiKeys.push(k);
+    }
+    const apiKey = apiKeys[0] || "";
     let facts = [];
     try {
       facts = (await memoryRef.current.listFacts()).slice(-25).map((f) => f.text);
     } catch {
       /* no facts is fine */
     }
-    return { apiKey, facts };
+    return { apiKey, apiKeys, facts };
   }, [stored.geminiKey]);
   // A finished Live turn joins the normal chat history so text mode remembers it.
   const saveLiveTurn = useCallback(

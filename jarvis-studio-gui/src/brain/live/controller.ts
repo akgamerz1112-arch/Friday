@@ -7,12 +7,15 @@ import { startMic, type Mic } from "./mic";
 import { Player } from "./player";
 import { LiveSession, type SessionState, type Turn } from "./session";
 import { LIVE_MODEL_DEFAULT } from "./protocol";
+import { KeyRing, allOutMessage, rotationNote } from "./keyring";
 
 /** Thrown by start() when the phone wants one tap before audio may play (not a real error). */
 export const NEEDS_TAP = "NEEDS_TAP";
 
 export interface LiveControllerOptions {
   apiKey: string;
+  /** All Gemini keys, in order (the first is the primary). Live moves to the next one when a key is refused. */
+  apiKeys?: string[];
   systemInstruction: string;
   voiceName: string;
   model?: string;
@@ -35,9 +38,12 @@ export class LiveController {
   private speakTimer: ReturnType<typeof setInterval> | null = null;
   private wasSpeaking = false;
   private readonly o: LiveControllerOptions;
+  private readonly ring: KeyRing;
+  private allOut = false;
 
   constructor(o: LiveControllerOptions) {
     this.o = o;
+    this.ring = new KeyRing(o.apiKeys?.length ? o.apiKeys : [o.apiKey]);
     this.allowInterrupt = o.allowInterrupt;
   }
 
@@ -69,13 +75,22 @@ export class LiveController {
       }
     }, 120);
     this.session = new LiveSession({
-      apiKey: this.o.apiKey,
+      apiKey: this.ring.current,
+      onKeyRefused: (verdict) => {
+        const from = this.ring.position;
+        const next = this.ring.rotate();
+        if (!next) {
+          this.allOut = true;
+          return null;
+        }
+        return { key: next.key, note: rotationNote(from, next.position, this.ring.size, verdict) };
+      },
       setup: {
         model: this.o.model || LIVE_MODEL_DEFAULT,
         systemInstruction: this.o.systemInstruction,
         voiceName: this.o.voiceName,
       },
-      onState: this.o.onState,
+      onState: (st, detail) => this.o.onState(st, st === "closed" && this.allOut ? allOutMessage(this.ring.size) : detail),
       onTurn: this.o.onTurn,
       onFirstAudio: this.o.onFirstAudio,
       onEvent: (e) => {
@@ -83,7 +98,12 @@ export class LiveController {
         else if (e.type === "interrupted") this.player?.stop();
       },
     });
-    await this.session.connect(); // throws with the server's reason if refused
+    try {
+      await this.session.connect(); // throws with the server's reason if refused
+    } catch (e) {
+      if (this.allOut) throw new Error(allOutMessage(this.ring.size));
+      throw e;
+    }
     this.mic = await startMic(this.ctx!, (pcm) => {
       const level = rms(pcm);
       this.o.onLevel(level);

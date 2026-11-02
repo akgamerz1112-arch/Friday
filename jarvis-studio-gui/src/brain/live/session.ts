@@ -3,6 +3,7 @@
  * connection, and measure the real delay. No browser audio in here (see mic.ts / player.ts), so it is
  * testable with a fake WebSocket.
  */
+import { classifyClose, type CloseVerdict } from "./keyring";
 import {
   audioMessage,
   audioStreamEndMessage,
@@ -42,6 +43,8 @@ export interface LiveSessionOptions {
   onFirstAudio?: (ms: number) => void;
   /** A finished piece of the conversation (for the chat log / memory). */
   onTurn?: (t: Turn) => void;
+  /** The server refused the current key (quota used up / key invalid). Return the next key to try, or null to give up. */
+  onKeyRefused?: (verdict: Exclude<CloseVerdict, "other">, why: string) => { key: string; note: string } | null;
   SocketCtor?: SocketCtor;
   now?: () => number;
   maxReconnects?: number;
@@ -67,8 +70,10 @@ export class LiveSession {
   droppedChunks = 0;
 
   private readonly o: LiveSessionOptions;
+  private key: string;
   constructor(o: LiveSessionOptions) {
     this.o = o;
+    this.key = o.apiKey;
   }
 
   get current(): SessionState {
@@ -97,7 +102,7 @@ export class LiveSession {
   private open(kind: "connecting" | "reconnecting") {
     this.set(kind);
     const Ctor = this.o.SocketCtor ?? (globalThis as any).WebSocket;
-    const ws: SocketLike = new Ctor(liveWsUrl(this.o.apiKey));
+    const ws: SocketLike = new Ctor(liveWsUrl(this.key));
     this.ws = ws;
     ws.onopen = () => {
       if (this.ws !== ws) return;
@@ -211,6 +216,20 @@ export class LiveSession {
     if (this.userClosed) {
       this.set("closed", "ended");
       return;
+    }
+    // The key itself was refused (quota / invalid): try the next Gemini key, same conversation context.
+    const verdict = classifyClose(code, reason);
+    if (verdict !== "other" && this.o.onKeyRefused) {
+      const next = this.o.onKeyRefused(verdict, why);
+      if (next) {
+        this.key = next.key;
+        this.handle = null; // a resumption handle belongs to the old key; recent turns are replayed instead
+        this.set("reconnecting", next.note);
+        setTimeout(() => {
+          if (!this.userClosed && !this.ws) this.open("reconnecting");
+        }, 0);
+        return;
+      }
     }
     // Closed before the setup was accepted = the server said no (bad key, unknown model...). Don't loop.
     if (this.readyReject) {

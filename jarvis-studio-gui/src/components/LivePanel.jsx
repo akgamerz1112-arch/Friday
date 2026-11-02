@@ -94,7 +94,7 @@ export default function LivePanel({ getContext, saveTurn, onClose, onOpenSetting
     setDelays([]);
     setDropped(0);
     try {
-      const { apiKey, facts } = await getContext();
+      const { apiKey, apiKeys, facts } = await getContext();
       if (!apiKey) {
         setError("Live voice needs a Gemini key. Add one in Settings ▸ Models.");
         return;
@@ -103,6 +103,7 @@ export default function LivePanel({ getContext, saveTurn, onClose, onOpenSetting
       write(LS.model, model);
       const c = new LiveController({
         apiKey,
+        apiKeys,
         model: model.trim() || LIVE_MODEL_DEFAULT,
         voiceName: voice,
         allowInterrupt: interrupt,

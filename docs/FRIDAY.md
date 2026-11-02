@@ -251,3 +251,18 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   New switch "Live only" (Live screen ▸ Options, default ON, key `jarvis.liveOnly`): no Chat button; Back ends a running conversation, and with
   none running Back is not intercepted so Android leaves the app. Turn "Live only" off to get the Chat button (classic text UI) back.
   The classic UI is hidden, not deleted. Untested on a phone.
+
+## Phase 18 — Live voice: Gemini key rotation (v23)
+- Live now uses ALL saved Gemini keys (Settings > Models, one per line or comma). The first is the primary. If the server refuses it because the
+  quota is used up, or the key is wrong/expired, Live moves to the next Gemini key and shows "Key 1 ka limit khatam — key 2/4 try kar raha hoon".
+  When every key is out it stops with one clear message. It never switches to another provider (Groq/OpenRouter/NVIDIA stay for the text brain only).
+- Code: `brain/live/keyring.ts` (KeyRing + `classifyClose`), `LiveSession.onKeyRefused`, `LiveController.apiKeys`, `getLiveContext` returns `apiKeys`.
+- How a refusal is recognised: by the words in the server's close reason (quota / exhausted / rate limit / billing = quota; api key / invalid /
+  expired / permission denied = bad key). Forum reports show the quota case as close code 1011 with "You exceeded your current quota..." — that exact
+  wording is NOT in the official docs, so it may differ. A plain "Internal error encountered." (also 1011) is NOT treated as quota; it only reconnects
+  with the same key. If the quota refusal ever shows a different text, the screen shows the raw reason: send it and the match list gets one more word.
+- On a key switch the server's resume handle is dropped (it belongs to the old key); the last turns are replayed so the chat continues.
+- Tested here (Node, vitest shim, NOT real vitest): 10 new cases (`keyring.test.ts`) + the 17 older session cases still pass. NOT tested: tsc/lint/CI,
+  a real quota refusal from Google, the phone.
+- Device check: put 2+ Gemini keys in Settings > Models; open Live; it should connect on key 1. To see a switch, put a deliberately wrong key FIRST:
+  Live should say key 1 is wrong/expired and continue on key 2.
