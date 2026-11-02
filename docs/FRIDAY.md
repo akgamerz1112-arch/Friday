@@ -291,4 +291,6 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   the `gemini-3.8-live` model on a real session: if the server rejects the setup the screen shows its close reason.
 - Tests added: `live/tools.test.ts`, tool cases in `live/session.test.ts`, updated `persona.test.ts`, memory tests. Nothing compiled or run here (no toolchain): CI is the real check.
 - Device checks: "torch chalu karo", "app kholo", "5 minute ka timer", "yaad rakhna ki ...", then close the app and ask again; "Mummy ko call karo" must ask first; Home screen then "Hey Jarvis ..." must work.
-
+- **Checked in Google's docs (2026-11-02):** `gemini-3.8-live` supports function calling, and runs it **asynchronously by default** (`behavior: NON_BLOCKING`): the model keeps talking while a tool runs.
+  That would let it say "done" before the result arrives, so for 3.8 models `buildSetup` sets `behavior: "BLOCKING"` on every declaration (the model waits for our result). Other Live models don't get the field.
+  Still not run against a real session.

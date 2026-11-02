@@ -291,7 +291,13 @@ describe("session", () => {
 describe("tools in a live session", () => {
   it("declares the tools in setup, and omits them when there are none", () => {
     const decl = [{ name: "device_control", description: "d" }];
-    expect((buildSetup({ systemInstruction: "x", tools: decl }) as any).setup.tools).toEqual([{ functionDeclarations: decl }]);
+    // gemini-3.8-live answers tools asynchronously unless told to wait, so the declarations carry BLOCKING.
+    expect((buildSetup({ systemInstruction: "x", tools: decl, model: "gemini-3.8-live" }) as any).setup.tools).toEqual([
+      { functionDeclarations: [{ ...decl[0], behavior: "BLOCKING" }] },
+    ]);
+    expect((buildSetup({ systemInstruction: "x", tools: decl, model: "gemini-3.1-flash-live-preview" }) as any).setup.tools).toEqual([
+      { functionDeclarations: decl },
+    ]);
     expect((buildSetup({ systemInstruction: "x" }) as any).setup.tools).toBeUndefined();
   });
 

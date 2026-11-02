@@ -67,7 +67,14 @@ export function buildSetup(opts: LiveSetupOptions): Record<string, unknown> {
     sessionResumption: opts.resumptionHandle ? { handle: opts.resumptionHandle } : {},
     contextWindowCompression: { slidingWindow: {} },
   };
-  if (opts.tools?.length) setup.tools = [{ functionDeclarations: opts.tools }];
+  if (opts.tools?.length) {
+    // gemini-3.8-live runs tools asynchronously by default: the model keeps talking and may say "done" before
+    // our result arrives. BLOCKING makes it wait for the real result first. (Older Live models don't know the field.)
+    const blocking = /3\.8/.test(model);
+    setup.tools = [
+      { functionDeclarations: opts.tools.map((t) => (blocking ? { ...t, behavior: "BLOCKING" } : t)) },
+    ];
+  }
   return { setup };
 }
 
