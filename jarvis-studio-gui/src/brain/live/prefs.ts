@@ -16,3 +16,25 @@ export function setLiveOnLaunch(on: boolean): void {
     /* storage unavailable: the switch just won't persist */
   }
 }
+
+/**
+ * "Live only": the app is the Live voice agent; the old text chat is hidden (no Chat button, Back leaves the app
+ * when no conversation is running). Default ON. Turn it off in the Live screen's Options to get the classic chat button back.
+ */
+const KEY_ONLY = "jarvis.liveOnly";
+
+export function getLiveOnly(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(KEY_ONLY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export function setLiveOnly(on: boolean): void {
+  try {
+    globalThis.localStorage?.setItem(KEY_ONLY, on ? "1" : "0");
+  } catch {
+    /* storage unavailable */
+  }
+}

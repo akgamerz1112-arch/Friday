@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getLiveOnLaunch, setLiveOnLaunch } from "./prefs";
+import { getLiveOnLaunch, getLiveOnly, setLiveOnLaunch, setLiveOnly } from "./prefs";
 
 const g = globalThis as any;
 afterEach(() => {
@@ -31,5 +31,17 @@ describe("live on launch", () => {
     };
     expect(getLiveOnLaunch()).toBe(true);
     setLiveOnLaunch(false);
+  });
+});
+
+describe("live only", () => {
+  it("defaults to on and remembers off", () => {
+    expect(getLiveOnly()).toBe(true);
+    const m = new Map<string, string>();
+    g.localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => m.set(k, v) };
+    expect(getLiveOnly()).toBe(true);
+    setLiveOnly(false);
+    expect(getLiveOnly()).toBe(false);
+    expect(getLiveOnLaunch()).toBe(true); // independent switches
   });
 });

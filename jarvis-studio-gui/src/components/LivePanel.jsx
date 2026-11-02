@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LiveController, NEEDS_TAP } from "../brain/live/controller";
-import { getLiveOnLaunch, setLiveOnLaunch } from "../brain/live/prefs";
+import { getLiveOnLaunch, setLiveOnLaunch, getLiveOnly, setLiveOnly } from "../brain/live/prefs";
 import { buildLivePrompt, LIVE_VOICES, DEFAULT_VOICE_FEMALE, DEFAULT_VOICE_MALE } from "../brain/live/persona";
 import { LIVE_MODEL_DEFAULT } from "../brain/live/protocol";
 import { isMaleVoice } from "../brain/platform/sarvamTts";
@@ -38,7 +38,7 @@ const STATE_TEXT = {
   closed: "Ended",
 };
 
-export default function LivePanel({ getContext, saveTurn, onClose, autoStart = false, onActive }) {
+export default function LivePanel({ getContext, saveTurn, onClose, onOpenSettings, autoStart = false, onActive }) {
   const male = isMaleVoice();
   const [voice, setVoice] = useState(() => read(LS.voice, male ? DEFAULT_VOICE_MALE : DEFAULT_VOICE_FEMALE));
   const [model, setModel] = useState(() => read(LS.model, LIVE_MODEL_DEFAULT));
@@ -51,7 +51,10 @@ export default function LivePanel({ getContext, saveTurn, onClose, autoStart = f
   const [delays, setDelays] = useState([]);
   const [dropped, setDropped] = useState(0);
   const [needTap, setNeedTap] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [wave, setWave] = useState(() => Array(28).fill(0));
   const [onLaunch, setOnLaunch] = useState(() => getLiveOnLaunch());
+  const [liveOnly, setLiveOnlyState] = useState(() => getLiveOnly());
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
   const ctl = useRef(null);
@@ -66,11 +69,13 @@ export default function LivePanel({ getContext, saveTurn, onClose, autoStart = f
       await c.stop();
     }
     setLevel(0);
+    setSpeaking(false);
   }, []);
 
-  useAndroidBack(true, () => {
+  // Live-only: Back ends a running conversation; with none running it is not intercepted, so Android leaves the app.
+  useAndroidBack(!liveOnly || live, () => {
     void stop();
-    onClose();
+    if (!liveOnly) onClose();
   });
   useEffect(() => () => void stop(), [stop]);
   // While this screen is open the always-listening wake engine is paused, so two microphones never run at once.
@@ -110,7 +115,11 @@ export default function LivePanel({ getContext, saveTurn, onClose, autoStart = f
           setLines((l) => [...l.slice(-30), t]);
           void saveTurn?.(t.role, t.text);
         },
-        onLevel: (v) => setLevel(v),
+        onLevel: (v) => {
+          setLevel(v);
+          setWave((w) => [...w.slice(1), v]);
+        },
+        onSpeaking: setSpeaking,
         onFirstAudio: (ms) => setDelays((d) => [...d.slice(-9), ms]),
       });
       ctl.current = c;
@@ -146,61 +155,136 @@ export default function LivePanel({ getContext, saveTurn, onClose, autoStart = f
   const last = delays.length ? delays[delays.length - 1] : null;
   const med = median(delays);
   const sec = (ms) => (ms == null ? "–" : `${(ms / 1000).toFixed(1)} s`);
-  const orb = state === "ready" ? "#38e1ff" : state === "reconnecting" || state === "connecting" ? "#ffb347" : "#506070";
+  const name = male ? "JARVIS" : "FRIDAY";
+  const label = needTap && !live ? "Tap to begin" : state === "ready" ? (speaking ? "Speaking" : "Listening") : STATE_TEXT[state];
+  const tone = speaking ? "#7dd3fc" : state === "ready" ? "#22d3ee" : state === "reconnecting" || state === "connecting" ? "#fbbf24" : "#64748b";
+  const glow = Math.min(1, level * 9);
+  const recent = lines.slice(-4);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#0b1218", color: "#dff6ff", display: "flex", flexDirection: "column", padding: "max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <strong style={{ fontSize: 18 }}>Live voice (beta)</strong>
-        <button type="button" onClick={async () => { await stop(); onClose(); }} style={{ background: "none", border: "1px solid #345", color: "inherit", borderRadius: 8, padding: "6px 12px" }}>Close</button>
+    <div className="lv-root">
+      <style>{CSS}</style>
+
+      <div className="lv-top">
+        <div className="lv-name">{name}</div>
+        <div className="lv-chip"><span className="lv-dot" style={{ background: tone, boxShadow: `0 0 8px ${tone}` }} />{label}{detail && state !== "ready" ? ` · ${detail}` : ""}</div>
       </div>
 
-      <div style={{ textAlign: "center", margin: "18px 0 8px" }}>
-        <div style={{ width: 96, height: 96, margin: "0 auto", borderRadius: "50%", background: orb, opacity: 0.25 + Math.min(0.75, level * 8), boxShadow: `0 0 ${12 + level * 200}px ${orb}`, transition: "opacity 80ms" }} />
-        <div style={{ marginTop: 10, fontSize: 15 }}>{STATE_TEXT[state]}{detail && state !== "ready" ? ` (${detail})` : ""}</div>
+      <div className="lv-stage">
+        <div className={`lv-core ${speaking ? "lv-speak" : ""} ${live ? "lv-live" : ""}`} style={{ "--c": tone, "--g": glow }}>
+          <svg viewBox="0 0 200 200" className="lv-rings" aria-hidden="true">
+            <circle cx="100" cy="100" r="92" className="lv-r1" />
+            <circle cx="100" cy="100" r="76" className="lv-r2" />
+            <circle cx="100" cy="100" r="60" className="lv-r3" />
+          </svg>
+          <div className="lv-orb" />
+        </div>
+
+        <div className="lv-wave" aria-hidden="true">
+          {wave.map((v, i) => (
+            <span key={i} style={{ height: `${4 + Math.min(1, v * 10) * 34}px`, opacity: live && !speaking ? 0.9 : 0.25 }} />
+          ))}
+        </div>
       </div>
 
-      {error && <div style={{ background: "#3a1418", border: "1px solid #7a2a33", borderRadius: 8, padding: 10, margin: "6px 0", fontSize: 14 }}>{error}</div>}
+      {error && <div className="lv-error">{error}</div>}
 
-      <div style={{ flex: 1, overflowY: "auto", margin: "8px 0", fontSize: 15, lineHeight: 1.45 }}>
-        {lines.length === 0 && !error && <div style={{ opacity: 0.6 }}>{live ? "Say something…" : needTap ? "Tap Start once — the phone needs a tap before it lets me talk." : "Tap Start, then talk like you would to a friend. Headphones work best."}</div>}
-        {lines.map((t, i) => (
-          <div key={i} style={{ margin: "6px 0", textAlign: t.role === "user" ? "right" : "left", color: t.role === "user" ? "#9fb4c0" : "#dff6ff" }}>{t.text}</div>
+      <div className="lv-talk">
+        {recent.length === 0 && !error && (
+          <div className="lv-hint">{live ? "Bolo, main sun raha hoon…" : needTap ? "Ek baar tap karo, phir baat shuru." : "Start dabao aur dost ki tarah baat karo. Earphones ho to behtar."}</div>
+        )}
+        {recent.map((t, i) => (
+          <div key={i} className={`lv-line ${t.role === "user" ? "lv-user" : "lv-ai"}`} style={{ opacity: 0.45 + (i + 1) / recent.length * 0.55 }}>{t.text}</div>
         ))}
         <div ref={endRef} />
       </div>
 
-      <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 8 }}>
-        Reply delay: last {sec(last)} · typical {sec(med)} <span style={{ opacity: 0.7 }}>(from your last word to her first sound; includes the end-of-speech wait)</span>
-        {dropped > 0 && <div>Audio lost while reconnecting: {dropped} chunks</div>}
+      <div className="lv-delay">
+        Reply delay: last {sec(last)} · typical {sec(med)}
+        {dropped > 0 && ` · lost ${dropped} audio chunks`}
       </div>
 
-      {!live && (
-        <div style={{ display: "grid", gap: 8, marginBottom: 10, fontSize: 14 }}>
-          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>Voice
-            <select value={voice} onChange={(e) => setVoice(e.target.value)} style={{ background: "#13202b", color: "inherit", border: "1px solid #345", borderRadius: 6, padding: 6 }}>
-              {LIVE_VOICES.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </label>
-          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>Model
-            <input value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} style={{ flex: 1, background: "#13202b", color: "inherit", border: "1px solid #345", borderRadius: 6, padding: 6 }} />
-          </label>
+      <details className="lv-opts">
+        <summary>Options</summary>
+        <div className="lv-optrow">
+          <span>Voice</span>
+          <select value={voice} disabled={live} onChange={(e) => setVoice(e.target.value)}>
+            {LIVE_VOICES.map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
         </div>
-      )}
-      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, marginBottom: 12 }}>
-        <span>I can interrupt her<br /><span style={{ opacity: 0.65, fontSize: 12 }}>Turn off if she keeps cutting herself on loudspeaker</span></span>
-        <input type="checkbox" checked={interrupt} onChange={(e) => toggleInterrupt(e.target.checked)} style={{ width: 22, height: 22 }} />
-      </label>
+        <div className="lv-optrow">
+          <span>Model</span>
+          <input value={model} disabled={live} onChange={(e) => setModel(e.target.value)} spellCheck={false} />
+        </div>
+        <label className="lv-optrow">
+          <span>I can interrupt her<small>Off if she cuts herself on loudspeaker</small></span>
+          <input type="checkbox" checked={interrupt} onChange={(e) => toggleInterrupt(e.target.checked)} />
+        </label>
+        <label className="lv-optrow">
+          <span>Live only<small>Hide the old text chat (Chat button)</small></span>
+          <input type="checkbox" checked={liveOnly} onChange={(e) => { setLiveOnlyState(e.target.checked); setLiveOnly(e.target.checked); }} />
+        </label>
+        <label className="lv-optrow">
+          <span>Open Live when the app starts</span>
+          <input type="checkbox" checked={onLaunch} onChange={(e) => { setOnLaunch(e.target.checked); setLiveOnLaunch(e.target.checked); }} />
+        </label>
+      </details>
 
-      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, marginBottom: 12 }}>
-        <span>Open Live when the app starts</span>
-        <input type="checkbox" checked={onLaunch} onChange={(e) => { setOnLaunch(e.target.checked); setLiveOnLaunch(e.target.checked); }} style={{ width: 22, height: 22 }} />
-      </label>
-
-      <button type="button" onClick={live ? stop : start} style={{ background: live ? "#7a2a33" : "#0f8fa8", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 17, fontWeight: 600 }}>
-        {live ? "End" : "Start"}
-      </button>
-      <div style={{ fontSize: 11, opacity: 0.55, marginTop: 8, textAlign: "center" }}>Beta: talk only — no phone control here. Audio is sent to Google. Uses your Gemini key and its quota.</div>
+      <div className="lv-bar">
+        {!liveOnly && <button type="button" className="lv-side" onClick={async () => { await stop(); onClose(); }}>Chat</button>}
+        <button type="button" className={`lv-main ${live ? "lv-end" : ""}`} onClick={live ? stop : start} aria-label={live ? "End" : "Start"}>
+          {live ? "End" : "Start"}
+        </button>
+        <button type="button" className="lv-side" onClick={async () => { await stop(); (onOpenSettings || onClose)(); }}>Settings</button>
+      </div>
+      <div className="lv-foot">Beta · sirf baat-cheet, phone control nahi · audio Google ko jaata hai · aapki Gemini key/quota use hota hai</div>
     </div>
   );
 }
+
+const CSS = `
+.lv-root{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;color:#e6f7ff;
+  background:radial-gradient(120% 70% at 50% 18%,#0b2447 0%,#06142b 38%,#02060d 100%);
+  padding:max(14px,env(safe-area-inset-top)) 16px max(14px,env(safe-area-inset-bottom));font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.lv-top{display:flex;align-items:center;justify-content:space-between}
+.lv-name{font-size:15px;letter-spacing:.42em;font-weight:600;color:#7dd3fc}
+.lv-chip{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(56,225,255,.2);backdrop-filter:blur(8px)}
+.lv-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.lv-stage{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;margin-top:22px}
+.lv-core{position:relative;width:min(62vw,240px);aspect-ratio:1;display:grid;place-items:center}
+.lv-rings{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:var(--c);stroke-width:1.2}
+.lv-r1{stroke-dasharray:4 9;opacity:.55;transform-origin:center;animation:lv-spin 40s linear infinite}
+.lv-r2{stroke-dasharray:90 30;opacity:.8;transform-origin:center;animation:lv-spin 26s linear infinite reverse}
+.lv-r3{stroke-dasharray:2 6;opacity:.6;transform-origin:center;animation:lv-spin 18s linear infinite}
+.lv-orb{width:56%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ffffff 0%,var(--c) 28%,#0b4f8a 62%,#03213f 100%);
+  box-shadow:0 0 calc(24px + var(--g)*70px) var(--c),0 0 90px rgba(34,211,238,.25) inset;
+  transform:scale(calc(1 + var(--g)*.18));transition:transform 90ms linear,box-shadow 90ms linear,background .4s}
+.lv-live .lv-orb{animation:lv-breathe 3.2s ease-in-out infinite}
+.lv-speak .lv-orb{animation:lv-talk .9s ease-in-out infinite}
+.lv-wave{display:flex;align-items:center;justify-content:center;gap:4px;height:42px;margin-top:16px}
+.lv-wave span{width:4px;border-radius:3px;background:linear-gradient(#67e8f9,#3b82f6);transition:height 80ms linear}
+.lv-error{margin:8px 0;padding:10px 12px;border-radius:10px;background:rgba(127,29,29,.45);border:1px solid rgba(248,113,113,.5);font-size:14px}
+.lv-talk{flex:1;min-height:0;overflow-y:auto;margin:10px 0 4px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;font-size:16px;line-height:1.45}
+.lv-hint{text-align:center;opacity:.6;font-size:14px}
+.lv-line{padding:9px 13px;border-radius:14px;max-width:88%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(6px)}
+.lv-user{align-self:flex-end;color:#a5b4c4}
+.lv-ai{align-self:flex-start;border-color:rgba(56,225,255,.25)}
+.lv-delay{font-size:12px;opacity:.6;text-align:center;margin:4px 0}
+.lv-opts{font-size:14px;margin:2px 0 8px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:8px 12px}
+.lv-opts summary{cursor:pointer;opacity:.8}
+.lv-optrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}
+.lv-optrow small{display:block;opacity:.6;font-size:11px}
+.lv-optrow select,.lv-optrow input[type=text],.lv-optrow input:not([type]){background:#0c1b2e;color:inherit;border:1px solid #27425f;border-radius:8px;padding:6px 8px;min-width:0}
+.lv-optrow input:not([type]){flex:1}
+.lv-optrow input[type=checkbox]{width:22px;height:22px}
+.lv-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:6px}
+.lv-side{flex:1;background:rgba(255,255,255,.05);color:#cfeaff;border:1px solid rgba(56,225,255,.2);border-radius:14px;padding:13px 0;font-size:15px}
+.lv-main{flex:1.4;background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;border:none;border-radius:999px;padding:16px 0;font-size:18px;font-weight:700;letter-spacing:.06em;box-shadow:0 0 24px rgba(34,211,238,.35)}
+.lv-end{background:linear-gradient(135deg,#be123c,#7f1d1d);box-shadow:0 0 24px rgba(244,63,94,.3)}
+.lv-foot{font-size:10.5px;opacity:.45;text-align:center;margin-top:8px}
+@keyframes lv-spin{to{transform:rotate(360deg)}}
+@keyframes lv-breathe{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
+@keyframes lv-talk{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+@media (prefers-reduced-motion:reduce){.lv-r1,.lv-r2,.lv-r3,.lv-live .lv-orb,.lv-speak .lv-orb{animation:none}}
+`;

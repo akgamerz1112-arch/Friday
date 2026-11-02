@@ -1052,6 +1052,11 @@ export default function App() {
           saveTurn={saveLiveTurn}
           autoStart={liveAuto}
           onActive={setLiveHold}
+          onOpenSettings={() => {
+            setLiveOpen(false);
+            setLiveAuto(false);
+            setShowSettings(true);
+          }}
           onClose={() => {
             setLiveOpen(false);
             setLiveAuto(false);

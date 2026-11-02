@@ -22,6 +22,8 @@ export interface LiveControllerOptions {
   onTurn: (t: Turn) => void;
   onLevel: (level: number) => void;
   onFirstAudio: (ms: number) => void;
+  /** true while her voice is actually playing (drives the animation; nothing is faked). */
+  onSpeaking?: (speaking: boolean) => void;
 }
 
 export class LiveController {
@@ -30,6 +32,8 @@ export class LiveController {
   private mic: Mic | null = null;
   private session: LiveSession | null = null;
   private allowInterrupt: boolean;
+  private speakTimer: ReturnType<typeof setInterval> | null = null;
+  private wasSpeaking = false;
   private readonly o: LiveControllerOptions;
 
   constructor(o: LiveControllerOptions) {
@@ -57,6 +61,13 @@ export class LiveController {
       throw new Error(NEEDS_TAP);
     }
     this.player = new Player(this.ctx!);
+    this.speakTimer = setInterval(() => {
+      const now = this.player?.playing ?? false;
+      if (now !== this.wasSpeaking) {
+        this.wasSpeaking = now;
+        this.o.onSpeaking?.(now);
+      }
+    }, 120);
     this.session = new LiveSession({
       apiKey: this.o.apiKey,
       setup: {
@@ -86,6 +97,10 @@ export class LiveController {
   }
 
   async stop(): Promise<void> {
+    if (this.speakTimer) clearInterval(this.speakTimer);
+    this.speakTimer = null;
+    if (this.wasSpeaking) this.o.onSpeaking?.(false);
+    this.wasSpeaking = false;
     this.mic?.stop();
     this.mic = null;
     this.player?.stop();

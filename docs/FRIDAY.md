@@ -244,3 +244,10 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   screen, default ON, key `jarvis.liveOnLaunch`). If the phone refuses audio without a tap it shows "Tap Start once". While the screen is open the
   wake engine is paused (`setLiveHold` in `useBrain`), so only one microphone runs. Close the screen to get the normal app and wake word back.
   Untested on a phone.
+- **Live screen redesign (v21):** cinematic look — dark navy glow, rotating cyan rings around a glowing core that swells with your voice level and
+  pulses while she speaks (`speaking` = her audio is really playing), mic-level waveform, last 4 lines of conversation, Chat / Settings buttons,
+  options folded into a drawer. Preview was rendered in a headless browser with sample text; real behaviour is untested on the phone.
+- **Live only (v22):** the old agent that said "हे बॉस!" at start is silenced when the app opens into Live (phone + Gemini key + Live-on-launch ON).
+  New switch "Live only" (Live screen ▸ Options, default ON, key `jarvis.liveOnly`): no Chat button; Back ends a running conversation, and with
+  none running Back is not intercepted so Android leaves the app. Turn "Live only" off to get the Chat button (classic text UI) back.
+  The classic UI is hidden, not deleted. Untested on a phone.

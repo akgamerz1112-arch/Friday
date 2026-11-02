@@ -9,6 +9,8 @@
  * Voice (STT/TTS), info-tools, and on-phone control land in later Phase 1/2 steps.
  */
 
+import { getLiveOnLaunch } from "../brain/live/prefs";
+import { isMobileViewport } from "../utils/isMobileViewport";
 import { turnStart, turnReplied, turnEnd } from "../brain/latency";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBrain } from "../brain";
@@ -2382,8 +2384,11 @@ export function useBrain() {
   // FRIDAY introduces herself once, as soon as a key is configured (desktop greets
   // from the backend; on the phone there's none, so the brain greets itself).
   const greetedRef = useRef(false);
+  const hasGeminiKey = Boolean(String(stored.geminiKey || "").trim());
   useEffect(() => {
     if (greetedRef.current || !hasKey) return;
+    // The app opens straight into Live voice (which talks by itself): no second, older voice saying hello over it.
+    if (isMobileViewport() && getLiveOnLaunch() && hasGeminiKey) return;
     greetedRef.current = true;
     const text = "हे बॉस!";
     setMessages((prev) =>
@@ -2400,7 +2405,7 @@ export function useBrain() {
         /* silent */
       }
     })();
-  }, [hasKey]);
+  }, [hasKey, hasGeminiKey]);
 
   // ── Live HUD panels (battery / network / weather) ────────────────────────────
   // Real device signals so the Power, Network and Weather panels aren't dead zeros.
