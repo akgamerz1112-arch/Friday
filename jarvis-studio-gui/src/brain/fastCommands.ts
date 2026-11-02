@@ -123,7 +123,7 @@ export function matchFastCommand(raw: string, now: Date = new Date()): FastComma
     return {
       type: "persona",
       name: persona,
-      say: persona === "jarvis" ? "ठीक है, अब से मैं JARVIS हूँ।" : "ठीक है, अब से मैं FRIDAY हूँ।",
+      say: "मैं ZENRO हूँ। आवाज़ बदलनी हो तो Settings में Voice चुनें।",
     };
   const t = raw
     .trim()

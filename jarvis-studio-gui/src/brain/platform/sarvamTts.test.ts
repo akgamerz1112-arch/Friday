@@ -71,7 +71,7 @@ describe("settings", () => {
     const s = normalizeSarvamSettings({ pace: 9, volume: 0, voice: "bogus", apiKey: " k " });
     expect(s.pace).toBe(1.6);
     expect(s.volume).toBe(0.3);
-    expect(s.voice).toBe("simran_hi_assistant");
+    expect(s.voice).toBe("shubh");
     expect(s.apiKey).toBe("k");
   });
 });
@@ -119,8 +119,8 @@ describe("speakWithSarvam", () => {
     expect(body).toMatchObject({
       text: "नमस्ते सर।",
       language_code: "hi-IN",
-      speaker: "simran_hi_assistant",
-      model: "bulbul:v4-flash",
+      speaker: "shubh",
+      model: "bulbul:v3",
       pace: 1.2,
     });
     expect(init.body as string).not.toContain(KEY);
@@ -204,6 +204,7 @@ describe("speakWithSarvam", () => {
       return b.model === "bulbul:v4-flash" ? fail(400, "invalid_request_error", "speaker invalid") : ok();
     });
     __setSarvamIO({ transport, player: fakePlayer() });
+    setSarvamSettings({ enabled: true, apiKey: KEY, voice: "simran_hi_assistant" }); // v4 voice explicitly chosen
     expect((await speakWithSarvam("नमस्ते")).done).toBe(true);
     expect(models).toEqual(["bulbul:v4-flash/simran_hi_assistant", "bulbul:v3/priya"]);
   });

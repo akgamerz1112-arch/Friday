@@ -27,7 +27,7 @@ export interface SarvamVoice {
   id: string;
   label: string;
   model: SarvamModel;
-  /** Absent = female. Male voices make FRIDAY answer as the male "JARVIS" persona. */
+  /** Absent = female. Voice gender only changes how the voice sounds, not the assistant identity. */
   gender?: "m";
 }
 
@@ -37,7 +37,7 @@ export interface SarvamVoice {
  * (ritu, priya, simran, shreya, kavya, roopa, suhani…) — pick by ear in Settings ▸ Voice.
  */
 export const SARVAM_VOICES: readonly SarvamVoice[] = [
-  { id: "simran_hi_assistant", label: "Simran — assistant (recommended)", model: "bulbul:v4-flash" },
+  { id: "simran_hi_assistant", label: "Simran — assistant", model: "bulbul:v4-flash" },
   { id: "simran_hi_conversation", label: "Simran — conversation", model: "bulbul:v4-flash" },
   { id: "ritu_hi_conversation", label: "Ritu — conversation", model: "bulbul:v4-flash" },
   { id: "shreya_hi_conversational", label: "Shreya — conversational", model: "bulbul:v4-flash" },
@@ -46,14 +46,14 @@ export const SARVAM_VOICES: readonly SarvamVoice[] = [
   { id: "priya", label: "Priya — Bulbul v3", model: "bulbul:v3" },
   { id: "suhani", label: "Suhani — Bulbul v3", model: "bulbul:v3" },
   // Male (Bulbul v3, names from Sarvam's voice list; shubh is their best male voice for Hindi).
-  { id: "shubh", label: "Shubh — male JARVIS (best Hindi)", model: "bulbul:v3", gender: "m" },
+  { id: "shubh", label: "Shubh — male (best Hindi, default)", model: "bulbul:v3", gender: "m" },
   { id: "rahul", label: "Rahul — male, deep and authoritative", model: "bulbul:v3", gender: "m" },
   { id: "aditya", label: "Aditya — male, modern and crisp", model: "bulbul:v3", gender: "m" },
   { id: "rohan", label: "Rohan — male, confident", model: "bulbul:v3", gender: "m" },
   { id: "amit", label: "Amit — male", model: "bulbul:v3", gender: "m" },
   { id: "anand", label: "Anand — male, professional", model: "bulbul:v3", gender: "m" },
 ];
-export const DEFAULT_VOICE = "simran_hi_assistant";
+export const DEFAULT_VOICE = "shubh";
 /** Used once, automatically, if the selected v4 voice is refused (bad model/speaker). */
 const V3_FALLBACK_VOICE: SarvamVoice = { id: "priya", label: "Priya", model: "bulbul:v3" };
 
@@ -105,13 +105,13 @@ export function normalizeSarvamSettings(s: Partial<SarvamSettings> | undefined):
   };
 }
 
-/** True when the selected voice is a male one (FRIDAY then speaks as the male JARVIS). */
+/** True when the selected voice is a male one (used only for masculine Hindi grammar, never for identity). */
 export function isMaleVoice(): boolean {
   return voiceById(settings.voice).gender === "m";
 }
 
 export function voiceById(id: string): SarvamVoice {
-  return SARVAM_VOICES.find((v) => v.id === id) ?? SARVAM_VOICES[0];
+  return SARVAM_VOICES.find((v) => v.id === id) ?? SARVAM_VOICES.find((v) => v.id === DEFAULT_VOICE) ?? SARVAM_VOICES[0];
 }
 
 // ── Failure handling ────────────────────────────────────────────────────────
