@@ -372,15 +372,41 @@ export default function Settings({
       live = false;
     };
   }, []);
+  const [callMsg, setCallMsg] = useState("");
+  // Turn it on/off on the phone, then read the phone's real answer back. If the phone did not
+  // keep the change, say so (with its own text) instead of silently flipping the switch back.
   const changeCall = (patch) => {
     const next = { ...call, ...patch };
     setCall(next);
-    void callAnnounceConfig({
-      on: next.on,
-      silent: next.silent,
-      dnd: next.dnd,
-      headset: next.headset,
-    }).then((r) => r && setCall((c) => ({ ...c, access: Boolean(r.access) })));
+    setCallMsg("");
+    void (async () => {
+      const r = await callAnnounceConfig({
+        on: next.on,
+        silent: next.silent,
+        dnd: next.dnd,
+        headset: next.headset,
+      });
+      if (!r) {
+        setCallMsg("Phone ne jawab nahi diya, setting save nahi hui.");
+        return;
+      }
+      if (r.ok === false) setCallMsg(`Phone ne error diya: ${r.summary || "unknown"}`);
+      const s = await callAnnounceStatus();
+      if (!s) {
+        setCallMsg("Phone se status nahi mila.");
+        return;
+      }
+      setCall({
+        on: Boolean(s.on),
+        silent: s.silent !== false,
+        dnd: s.dnd !== false,
+        headset: Boolean(s.headset),
+        access: Boolean(s.access),
+      });
+      if (Boolean(s.on) !== next.on) {
+        setCallMsg(`Phone par ${next.on ? "ON" : "OFF"} save nahi hua (phone ne ${s.on ? "ON" : "OFF"} bataya).`);
+      }
+    })();
   };
   const [wakeLevel, setWakeLevel] = useState("normal");
   const [wakeModel, setWakeModel] = useState("hey_jarvis.onnx");
@@ -1215,6 +1241,11 @@ export default function Settings({
               onChange={(v) => changeCall({ headset: v })}
             />
           </>
+        )}
+        {callMsg && (
+          <div className="sp-field">
+            <Warn>{callMsg}</Warn>
+          </div>
         )}
         {call.on && call.access === false && (
           <div className="sp-field">

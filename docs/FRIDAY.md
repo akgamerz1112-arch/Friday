@@ -266,3 +266,19 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   a real quota refusal from Google, the phone.
 - Device check: put 2+ Gemini keys in Settings > Models; open Live; it should connect on key 1. To see a switch, put a deliberately wrong key FIRST:
   Live should say key 1 is wrong/expired and continue on key 2.
+
+## Phase 19 — Live: one-tap reopen (v24)
+- Problem: after closing the Live screen the only way back was Settings > Live voice. Now a **"Live" button** (right side, above the bottom bar, phone only) shows on the normal
+  screen whenever Live is closed and no other sheet/settings is open. One tap opens Live and starts it. `App.jsx` (`.live-fab`), style in `ui.css`.
+  Position is a guess (not seen on a phone): if it covers something, change `bottom`/`right` in `.live-fab`.
+- NOT done: Sarvam voice inside Live. Live's voice is Gemini's own audio; Sarvam cannot replace it. The only route is Live in TEXT-output mode + Sarvam TTS, and the
+  official guide shows TEXT output only for the older `gemini-live-2.5-flash-preview`, not for `gemini-3.8-live` (checked 2026-11-02). Needs a device test before any build.
+- Not compiled or run here (JSX/CSS only; no tsc/eslint in the sandbox).
+
+## Phase 20 — call announcement switch (v25)
+- Symptom: "Announce who is calling" turned itself off after switching it on. Reading the code did NOT show a cause (nothing else writes the flag; JS only
+  sets it on). So this phase adds a check, not a guessed fix: after a change, Settings reads the phone's real state back and shows the phone's own error text
+  (or "Phone par ON save nahi hua ...") under the switch. Use that text to find the real cause.
+- Likely suspect (unproven): the announcer also needs Android's notification access, which Android 13 blocks for APKs installed outside the Play Store
+  until App info > ⋮ > "Allow restricted settings" is used.
+- Not compiled or run here.

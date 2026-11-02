@@ -1046,6 +1046,31 @@ export default function App() {
         </div>
       )}
 
+      {/* One tap to bring Live voice back after it was closed (no trip through Settings). */}
+      {IS_MOBILE &&
+        !liveOpen &&
+        !showSettings &&
+        !customizeOpen &&
+        !paletteOpen &&
+        !capsOpen &&
+        !powerOpen &&
+        !memoryOpen &&
+        !activityOpen &&
+        !remoteOpen && (
+          <button
+            type="button"
+            className="live-fab"
+            aria-label="Live voice shuru karo"
+            onClick={() => {
+              setLiveAuto(true);
+              setLiveOpen(true);
+            }}
+          >
+            <span className="live-fab-dot" aria-hidden="true" />
+            Live
+          </button>
+        )}
+
       {liveOpen && (
         <LivePanel
           getContext={getLiveContext}
