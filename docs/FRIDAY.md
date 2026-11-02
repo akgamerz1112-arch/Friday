@@ -275,10 +275,3 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   official guide shows TEXT output only for the older `gemini-live-2.5-flash-preview`, not for `gemini-3.8-live` (checked 2026-11-02). Needs a device test before any build.
 - Not compiled or run here (JSX/CSS only; no tsc/eslint in the sandbox).
 
-## Phase 20 — call announcement switch (v25)
-- Symptom: "Announce who is calling" turned itself off after switching it on. Reading the code did NOT show a cause (nothing else writes the flag; JS only
-  sets it on). So this phase adds a check, not a guessed fix: after a change, Settings reads the phone's real state back and shows the phone's own error text
-  (or "Phone par ON save nahi hua ...") under the switch. Use that text to find the real cause.
-- Likely suspect (unproven): the announcer also needs Android's notification access, which Android 13 blocks for APKs installed outside the Play Store
-  until App info > ⋮ > "Allow restricted settings" is used.
-- Not compiled or run here.
