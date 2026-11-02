@@ -32,6 +32,19 @@ export interface LiveSetupOptions {
   silenceDurationMs?: number;
   /** Handle from an earlier session so a reconnect continues the same conversation. */
   resumptionHandle?: string;
+  /** Gemini `functionDeclarations` the model may call (omit = talk only). */
+  tools?: Record<string, unknown>[];
+}
+
+export interface LiveCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+export interface LiveCallResult {
+  id: string;
+  name: string;
+  response: Record<string, unknown>;
 }
 
 export function buildSetup(opts: LiveSetupOptions): Record<string, unknown> {
@@ -54,8 +67,16 @@ export function buildSetup(opts: LiveSetupOptions): Record<string, unknown> {
     sessionResumption: opts.resumptionHandle ? { handle: opts.resumptionHandle } : {},
     contextWindowCompression: { slidingWindow: {} },
   };
+  if (opts.tools?.length) setup.tools = [{ functionDeclarations: opts.tools }];
   return { setup };
 }
+
+/** Our answer to the model's function call(s). Ids must be echoed back exactly. */
+export const toolResponseMessage = (results: LiveCallResult[]) => ({
+  toolResponse: {
+    functionResponses: results.map((r) => ({ id: r.id, name: r.name, response: r.response })),
+  },
+});
 
 export const audioMessage = (base64Pcm16k: string) => ({
   realtimeInput: { audio: { data: base64Pcm16k, mimeType: `audio/pcm;rate=${INPUT_RATE}` } },
@@ -80,7 +101,7 @@ export type LiveEvent =
   | { type: "turnComplete" }
   | { type: "goAway"; timeLeftMs: number | null }
   | { type: "resumption"; handle: string | null; resumable: boolean }
-  | { type: "toolCall"; names: string[] }
+  | { type: "toolCall"; names: string[]; calls: LiveCall[] }
   | { type: "usage"; totalTokens: number };
 
 const isObj = (v: unknown): v is Record<string, any> => typeof v === "object" && v !== null;
@@ -133,7 +154,16 @@ export function parseServerMessage(raw: unknown): LiveEvent[] {
   }
   if (isObj(msg.toolCall)) {
     const calls = Array.isArray(msg.toolCall.functionCalls) ? msg.toolCall.functionCalls : [];
-    out.push({ type: "toolCall", names: calls.map((c: any) => String(c?.name ?? "")).filter(Boolean) });
+    const named = calls.filter((c: any) => isObj(c) && typeof c.name === "string" && c.name);
+    out.push({
+      type: "toolCall",
+      names: named.map((c: any) => String(c.name)),
+      calls: named.map((c: any) => ({
+        id: String(c.id ?? ""),
+        name: String(c.name),
+        args: isObj(c.args) ? c.args : {},
+      })),
+    });
   }
   if (isObj(msg.goAway)) out.push({ type: "goAway", timeLeftMs: durationMs(msg.goAway.timeLeft) });
   const sr = msg.sessionResumptionUpdate;

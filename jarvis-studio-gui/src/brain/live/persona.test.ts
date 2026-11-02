@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { buildLivePrompt } from "./persona";
 
 describe("buildLivePrompt", () => {
-  it("names the assistant by voice and says live mode has no tools", () => {
+  it("names the assistant by voice and says what the tools are for", () => {
     expect(buildLivePrompt({ male: false, facts: [] })).toContain("You are FRIDAY");
     expect(buildLivePrompt({ male: true, facts: [] })).toContain("You are JARVIS");
-    expect(buildLivePrompt({ male: false, facts: [] })).toContain("cannot control the phone");
+    expect(buildLivePrompt({ male: false, facts: [] })).toContain("call the right tool at once");
+    expect(buildLivePrompt({ male: false, facts: [] })).toContain("Never say remembering is blocked");
   });
   it("adds only the last 25 facts, cleaned and capped", () => {
     const facts = Array.from({ length: 40 }, (_, i) => `fact ${i}  \n with   spaces`);

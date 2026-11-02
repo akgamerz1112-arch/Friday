@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { audioMessage, buildSetup, parseServerMessage, LIVE_MODEL_DEFAULT } from "./protocol";
+import { audioMessage, buildSetup, parseServerMessage, toolResponseMessage, LIVE_MODEL_DEFAULT } from "./protocol";
 import { base64ToPcm16, floatToPcm16, pcm16ToBase64, pcm16ToFloat, rms } from "./pcm";
 import { LiveSession, type SessionState, type SocketLike } from "./session";
 import type { LiveEvent } from "./protocol";
@@ -96,6 +96,7 @@ describe("protocol", () => {
     expect(parseServerMessage({ toolCall: { functionCalls: [{ name: "x", id: "1" }] } })[0]).toEqual({
       type: "toolCall",
       names: ["x"],
+      calls: [{ id: "1", name: "x", args: {} }],
     });
     expect(parseServerMessage("not json")).toEqual([]);
     expect(parseServerMessage(42)).toEqual([]);
@@ -286,3 +287,52 @@ describe("session", () => {
     expect(states[states.length - 1]).toBe("closed:ended");
   });
 });
+
+describe("tools in a live session", () => {
+  it("declares the tools in setup, and omits them when there are none", () => {
+    const decl = [{ name: "device_control", description: "d" }];
+    expect((buildSetup({ systemInstruction: "x", tools: decl }) as any).setup.tools).toEqual([{ functionDeclarations: decl }]);
+    expect((buildSetup({ systemInstruction: "x" }) as any).setup.tools).toBeUndefined();
+  });
+
+  it("builds the response message with the call ids echoed", () => {
+    expect(toolResponseMessage([{ id: "7", name: "get_time", response: { ok: true } }])).toEqual({
+      toolResponse: { functionResponses: [{ id: "7", name: "get_time", response: { ok: true } }] },
+    });
+  });
+
+  it("runs a tool call and sends the result back on the same connection", async () => {
+    const calls: any[] = [];
+    const { s } = make({
+      onToolCall: async (cs: any[]) => {
+        calls.push(...cs);
+        return cs.map((c) => ({ id: c.id, name: c.name, response: { ok: true } }));
+      },
+    });
+    const p = s.connect();
+    FakeWS.all[0]!.open();
+    FakeWS.all[0]!.push({ setupComplete: {} });
+    await p;
+    FakeWS.all[0]!.push({ toolCall: { functionCalls: [{ id: "a1", name: "get_time", args: {} }] } });
+    await tick();
+    await tick();
+    expect(calls[0]).toEqual({ id: "a1", name: "get_time", args: {} });
+    expect(FakeWS.all[0]!.sent[FakeWS.all[0]!.sent.length - 1]).toEqual({
+      toolResponse: { functionResponses: [{ id: "a1", name: "get_time", response: { ok: true } }] },
+    });
+  });
+
+  it("answers honestly when no tools are wired in", async () => {
+    const { s } = make();
+    const p = s.connect();
+    FakeWS.all[0]!.open();
+    FakeWS.all[0]!.push({ setupComplete: {} });
+    await p;
+    FakeWS.all[0]!.push({ toolCall: { functionCalls: [{ id: "b", name: "device_control", args: {} }] } });
+    await tick();
+    const sent = FakeWS.all[0]!.sent;
+    const last = sent[sent.length - 1];
+    expect(last.toolResponse.functionResponses[0].response.ok).toBe(false);
+  });
+});
+

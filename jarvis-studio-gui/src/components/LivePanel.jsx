@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LiveController, NEEDS_TAP } from "../brain/live/controller";
 import { getLiveOnLaunch, setLiveOnLaunch, getLiveOnly, setLiveOnly } from "../brain/live/prefs";
+import { createToolRunner } from "../brain/live/tools";
 import { buildLivePrompt, LIVE_VOICES, DEFAULT_VOICE_FEMALE, DEFAULT_VOICE_MALE } from "../brain/live/persona";
 import { LIVE_MODEL_DEFAULT } from "../brain/live/protocol";
 import { isMaleVoice } from "../brain/platform/sarvamTts";
@@ -38,7 +39,7 @@ const STATE_TEXT = {
   closed: "Ended",
 };
 
-export default function LivePanel({ getContext, saveTurn, onClose, onOpenSettings, autoStart = false, onActive }) {
+export default function LivePanel({ getContext, saveTurn, getTools, runTool, onClose, onOpenSettings, autoStart = false, onActive }) {
   const male = isMaleVoice();
   const [voice, setVoice] = useState(() => read(LS.voice, male ? DEFAULT_VOICE_MALE : DEFAULT_VOICE_FEMALE));
   const [model, setModel] = useState(() => read(LS.model, LIVE_MODEL_DEFAULT));
@@ -80,9 +81,22 @@ export default function LivePanel({ getContext, saveTurn, onClose, onOpenSetting
   useEffect(() => () => void stop(), [stop]);
   // While this screen is open the always-listening wake engine is paused, so two microphones never run at once.
   useEffect(() => {
-    onActiveRef.current?.(true);
-    return () => onActiveRef.current?.(false);
-  }, []);
+    onActiveRef.current?.(live);
+  }, [live]);
+  useEffect(() => () => onActiveRef.current?.(false), []);
+  // Android freezes the WebView in the background, so a Live conversation can't continue there: end it and let the
+  // normal wake word ("Hey Jarvis", handled natively) take over until the user comes back.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.hidden && ctl.current) {
+        void stop();
+        setState("closed");
+        setDetail("App background me gaya, Live band ho gaya. Wapas aane par Live dabao.");
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [stop]);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [lines]);
@@ -122,6 +136,9 @@ export default function LivePanel({ getContext, saveTurn, onClose, onOpenSetting
         },
         onSpeaking: setSpeaking,
         onFirstAudio: (ms) => setDelays((d) => [...d.slice(-9), ms]),
+        // Live can act on the phone through the same tools (and checks) as the chat brain.
+        tools: getTools ? getTools() : [],
+        onToolCall: runTool ? createToolRunner(runTool) : undefined,
       });
       ctl.current = c;
       await c.start();

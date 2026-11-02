@@ -18,6 +18,7 @@
  */
 
 import type { ChatMessage, ToolResult } from "../types";
+import { looksSecret } from "./guard";
 
 export interface MemoryStore {
   // ── Durable facts ──
@@ -196,10 +197,14 @@ const STOPWORDS = new Set([
   "would",
   "should",
   "just",
+  // Hindi / Hinglish glue words
+  "है", "हैं", "था", "थी", "का", "की", "के", "को", "में", "से", "पर", "और", "मैं", "मुझे", "मेरा", "मेरी", "मेरे", "क्या", "कि", "तो",
+  "hai", "hain", "tha", "thi", "ka", "ki", "ke", "ko", "me", "mein", "se", "par", "aur", "main", "mujhe", "mera", "meri", "mere", "kya", "ki", "toh", "nahi",
 ]);
 
 function tokenize(text: string): string[] {
-  return (text.toLowerCase().match(/[a-z0-9']+/g) ?? []).filter(
+  // Latin and Devanagari: a Hindi fact has no a-z words, so it used to get no keywords at all.
+  return (text.toLowerCase().match(/[a-z0-9\u0900-\u097F']+/g) ?? []).filter(
     (w) => w.length > 1 && !STOPWORDS.has(w),
   );
 }
@@ -211,6 +216,18 @@ function tokenize(text: string): string[] {
  * better to hand over everything than to arbitrarily drop facts the ranker has no
  * real signal about.
  */
+/** Two facts that say nearly the same thing (token overlap >= 0.7, 3+ words each). */
+export function nearDuplicateIndex(facts: string[], text: string): number {
+  const a = new Set(tokenize(text));
+  if (a.size < 3) return -1;
+  return facts.findIndex((f) => {
+    const b = new Set(tokenize(f));
+    if (b.size < 3) return false;
+    const inter = [...a].filter((w) => b.has(w)).length;
+    return inter / (a.size + b.size - inter) >= 0.7;
+  });
+}
+
 export function keywordRank(query: string, facts: string[], k = 3): string[] {
   const qWords = new Set(tokenize(query));
   if (qWords.size === 0) return facts;
@@ -275,7 +292,29 @@ export class PersistentStore implements MemoryStore {
   async remember(text: string, saJson?: string): Promise<ToolResult> {
     const t = text.trim();
     if (!t) return { ok: false, summary: "Nothing to remember." };
+    if (looksSecret(t))
+      return {
+        ok: false,
+        summary: "That looks like a password, key or private number, so I won't store it.",
+        error: "secret",
+      };
     const facts = readJson<string[]>(this.kv, FACTS_KEY, []);
+    // The same fact worded a little differently updates the old one instead of piling up beside it.
+    const near = facts.includes(t) ? -1 : nearDuplicateIndex(facts, t);
+    if (near >= 0) {
+      const old = facts[near];
+      facts[near] = t;
+      const times = readJson<Record<string, number>>(this.kv, FACT_TIMES_KEY, {});
+      delete times[old];
+      times[t] = Date.now();
+      writeJson(this.kv, FACT_TIMES_KEY, times);
+      if (!writeJson(this.kv, FACTS_KEY, facts))
+        return { ok: false, summary: "I couldn't save that, sir — my on-device storage is full.", error: "storage_full" };
+      markFactGone([factKey(old)]);
+      markFactGone([factKey(t)], 0);
+      await withVectorStore((m) => m.deleteVectorRecordByText(old));
+      return { ok: true, summary: "Got it — I updated what I knew." };
+    }
     if (!facts.includes(t)) {
       facts.push(t);
       const times = readJson<Record<string, number>>(this.kv, FACT_TIMES_KEY, {});
@@ -358,7 +397,7 @@ export class PersistentStore implements MemoryStore {
       // Fast path: if no query or very few facts, just return all of them
       return allFacts;
     }
-    if (!saJson) return keywordRank(query, allFacts);
+    if (!saJson) return keywordRank(query, allFacts, 5);
 
     const top = await withVectorStore(
       async (m) => m.searchTopK(await m.generateEmbedding(query, saJson), 3),
@@ -366,7 +405,7 @@ export class PersistentStore implements MemoryStore {
     );
     if (top && top.length > 0) return top.map((r) => r.text);
 
-    return keywordRank(query, allFacts);
+    return keywordRank(query, allFacts, 5);
   }
 
   // ── Conversation history ──

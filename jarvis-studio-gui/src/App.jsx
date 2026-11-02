@@ -123,6 +123,8 @@ export default function App() {
     sendConfig,
     getLiveContext,
     saveLiveTurn,
+    getLiveTools,
+    runLiveTool,
     setLiveHold,
     refreshModels,
     rerankModels,
@@ -1075,6 +1077,8 @@ export default function App() {
         <LivePanel
           getContext={getLiveContext}
           saveTurn={saveLiveTurn}
+          getTools={getLiveTools}
+          runTool={runLiveTool}
           autoStart={liveAuto}
           onActive={setLiveHold}
           onOpenSettings={() => {

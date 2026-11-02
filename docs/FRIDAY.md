@@ -275,3 +275,20 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
   official guide shows TEXT output only for the older `gemini-live-2.5-flash-preview`, not for `gemini-3.8-live` (checked 2026-11-02). Needs a device test before any build.
 - Not compiled or run here (JSX/CSS only; no tsc/eslint in the sandbox).
 
+## Phase 20 — Live voice can act, remembers, and gives the wake word back (v25)
+- **Why Live said "I can only talk" / "security reason":** Live was given no tools and its prompt told it so. Now it gets a short list of the SAME one-step tools as the
+  chat brain (`brain/live/tools.ts` `LIVE_TOOLS`: device_control, volume, alarm/timer/reminder, manage_clock, play_media, open_app/website, navigate, time/day/weather,
+  web_search, read_notifications, remember_fact/forget_fact, call_contact, send_message). Each call runs through `Brain.runTool` = the same dispatcher + journal as chat.
+  NOT included: `phone_task` (drives other apps; slow, blocks the voice), anything destructive.
+- **Truthful results:** the model gets the real tool result (`ok` / error) and the prompt says "done only if ok". Calls/messages: the first call answers NOT DONE and
+  makes the model ask you out loud; only a repeat 3-60 s later runs. (This is a prompt + code gate, not a hard guarantee: a model could still repeat too fast; the 3 s floor stops that.)
+- **Memory in Live:** Live can call remember_fact / forget_fact, and the saved facts are already in its prompt. Memory fixes from before are in too: secrets are never saved
+  (`memory/guard.ts`), Hindi retrieval, near-duplicate update, instant "yaad rakhna / bhool jao / mere bare me kya yaad hai" (`memory/quickMemory.ts`) and the MEMORY RULES prompt line.
+- **Background:** the Live screen used to hold the wake engine off for as long as the screen existed, so "Hey Jarvis" did nothing once you left. Now the hold lasts only while a
+  Live conversation is running, and leaving the app ends that conversation (Android freezes the WebView anyway), so the native wake path (Phase 12) takes over. Live itself
+  cannot run in the background; reopen it with the Live button.
+- Protocol: `setup.tools = [{functionDeclarations}]`, `toolCall.functionCalls[{id,name,args}]`, `toolResponse.functionResponses[{id,name,response}]` (Gemini Live API). NOT verified against
+  the `gemini-3.8-live` model on a real session: if the server rejects the setup the screen shows its close reason.
+- Tests added: `live/tools.test.ts`, tool cases in `live/session.test.ts`, updated `persona.test.ts`, memory tests. Nothing compiled or run here (no toolchain): CI is the real check.
+- Device checks: "torch chalu karo", "app kholo", "5 minute ka timer", "yaad rakhna ki ...", then close the app and ask again; "Mummy ko call karo" must ask first; Home screen then "Hey Jarvis ..." must work.
+

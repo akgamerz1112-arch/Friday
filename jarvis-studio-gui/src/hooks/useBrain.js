@@ -2721,6 +2721,15 @@ export function useBrain() {
     }
     return { apiKey, apiKeys, facts };
   }, [stored.geminiKey]);
+  // Live voice can act: it gets the same one-step tools as the chat brain, run through the same dispatcher.
+  const getLiveTools = useCallback(() => brainRef.current?.liveTools?.() ?? [], []);
+  const runLiveTool = useCallback(
+    (name, args) =>
+      brainRef.current?.runTool
+        ? brainRef.current.runTool(name, args)
+        : Promise.resolve({ ok: false, summary: "The assistant is not ready yet." }),
+    [],
+  );
   // A finished Live turn joins the normal chat history so text mode remembers it.
   const saveLiveTurn = useCallback(
     (role, text) => memoryRef.current.appendTurn({ role: role === "user" ? "user" : "assistant", content: text }),
@@ -2833,6 +2842,8 @@ export function useBrain() {
     setConversationModeOn,
     getLiveContext,
     saveLiveTurn,
+    getLiveTools,
+    runLiveTool,
     setLiveHold,
     wsSend: () => false,
   };

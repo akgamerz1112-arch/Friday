@@ -6,7 +6,7 @@ import { base64ToPcm16, pcm16ToBase64, rms } from "./pcm";
 import { startMic, type Mic } from "./mic";
 import { Player } from "./player";
 import { LiveSession, type SessionState, type Turn } from "./session";
-import { LIVE_MODEL_DEFAULT } from "./protocol";
+import { LIVE_MODEL_DEFAULT, type LiveCall, type LiveCallResult } from "./protocol";
 import { KeyRing, allOutMessage, rotationNote } from "./keyring";
 
 /** Thrown by start() when the phone wants one tap before audio may play (not a real error). */
@@ -27,6 +27,9 @@ export interface LiveControllerOptions {
   onFirstAudio: (ms: number) => void;
   /** true while her voice is actually playing (drives the animation; nothing is faked). */
   onSpeaking?: (speaking: boolean) => void;
+  /** Gemini function declarations the model may call, and the runner for its calls (omit both = talk only). */
+  tools?: Record<string, unknown>[];
+  onToolCall?: (calls: LiveCall[]) => Promise<LiveCallResult[]>;
 }
 
 export class LiveController {
@@ -89,7 +92,9 @@ export class LiveController {
         model: this.o.model || LIVE_MODEL_DEFAULT,
         systemInstruction: this.o.systemInstruction,
         voiceName: this.o.voiceName,
+        tools: this.o.tools,
       },
+      onToolCall: this.o.onToolCall,
       onState: (st, detail) => this.o.onState(st, st === "closed" && this.allOut ? allOutMessage(this.ring.size) : detail),
       onTurn: this.o.onTurn,
       onFirstAudio: this.o.onFirstAudio,

@@ -12,6 +12,9 @@ import {
   liveWsUrl,
   parseServerMessage,
   textMessage,
+  toolResponseMessage,
+  type LiveCall,
+  type LiveCallResult,
   type LiveEvent,
   type LiveSetupOptions,
 } from "./protocol";
@@ -44,6 +47,8 @@ export interface LiveSessionOptions {
   /** A finished piece of the conversation (for the chat log / memory). */
   onTurn?: (t: Turn) => void;
   /** The server refused the current key (quota used up / key invalid). Return the next key to try, or null to give up. */
+  /** The model asked to run tools. Return one result per call (same ids); they are sent back for it. */
+  onToolCall?: (calls: LiveCall[]) => Promise<LiveCallResult[]>;
   onKeyRefused?: (verdict: Exclude<CloseVerdict, "other">, why: string) => { key: string; note: string } | null;
   SocketCtor?: SocketCtor;
   now?: () => number;
@@ -172,6 +177,26 @@ export class LiveSession {
       case "resumption":
         if (e.handle) this.handle = e.handle;
         break;
+      case "toolCall": {
+        const ws = this.ws;
+        const run = this.o.onToolCall;
+        if (!e.calls.length) break;
+        const refuse = (why: string) =>
+          e.calls.map((c) => ({ id: c.id, name: c.name, response: { ok: false, error: why } }));
+        if (!run) {
+          this.send(toolResponseMessage(refuse("No tools are available in this session.")));
+          break;
+        }
+        // The answer goes back on the SAME connection only (a reconnect would not know these ids).
+        void run(e.calls)
+          .then((res) => {
+            if (this.ws === ws) this.send(toolResponseMessage(res));
+          })
+          .catch((err) => {
+            if (this.ws === ws) this.send(toolResponseMessage(refuse(String(err?.message || err))));
+          });
+        break;
+      }
       case "goAway":
         // The server is about to drop us (sessions are time-limited): move to a fresh connection now.
         this.reconnectNow("goAway");
