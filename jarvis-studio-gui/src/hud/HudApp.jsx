@@ -32,15 +32,13 @@ import {
   PowerOverlay,
   MemoryOverlay,
   ChatOverlay,
-  AgentRow,
 } from "./HudPanels";
-import { agentById } from "../brain/agents";
 import { stripMarkdownForSpeech } from "../brain/formatting";
 
 const STATUS_TEXT = {
   idle: [
     "Standing by",
-    IS_MOBILE ? "Say “Hey Jarvis”, or tap the orb." : "Say “Hey Jarvis”, or click the orb.",
+    IS_MOBILE ? "Tap the orb to talk." : "Click the orb to talk.",
   ],
   listening: [
     "Listening…",
@@ -115,7 +113,7 @@ function AskBar({ onSend, onListen, status, placeholder }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}
-        aria-label="Ask FRIDAY"
+        aria-label="Ask ZENRO"
         enterKeyHint="send"
       />
       <button
@@ -358,22 +356,7 @@ export function JarvisHUD({
       <header className="home-top">
         <div className="home-brand">
           <span className="home-logo" aria-hidden />
-          <span className="home-name">FRIDAY</span>
-          {!IS_MOBILE && (
-            <button
-              type="button"
-              className={`home-conn home-conn--btn${agentMode ? " is-on" : ""}`}
-              onClick={onToggleAgents}
-              aria-pressed={agentMode}
-              title={
-                agentMode
-                  ? "Agent mode: each request goes to a specialist agent."
-                  : "Simple mode. Click for agent mode."
-              }
-            >
-              Agents
-            </button>
-          )}
+          <span className="home-name">ZENRO</span>
         </div>
         {!IS_MOBILE && (
           <nav className="home-nav" aria-label="Menus">
@@ -411,13 +394,13 @@ export function JarvisHUD({
           {column("left")}
         </aside>
 
-        <section className="home-hero" aria-label="FRIDAY">
+        <section className="home-hero" aria-label="ZENRO">
           <HeroClock />
           <Core
             status={shownStatus}
             rgb={c.rgb}
             onClick={busy ? onStop : onListen}
-            label={busy ? "Stop" : "Talk to FRIDAY"}
+            label={busy ? "Stop" : "Talk to ZENRO"}
           />
           <div className="hero-status" role="status">
             {hudCards && <Waveform status={shownStatus} />}
@@ -449,22 +432,11 @@ export function JarvisHUD({
             </button>
           )}
 
-          {agentMode && (
-            <AgentRow
-              active={activeAgent}
-              pcPaired={Boolean(pcConfig?.host)}
-              onPick={onPickAgent}
-            />
-          )}
           <AskBar
             onSend={ask}
             onListen={onListen}
             status={status}
-            placeholder={
-              agentMode && activeAgent !== "auto"
-                ? `Ask the ${agentById(activeAgent).name} agent…`
-                : "Ask FRIDAY anything…"
-            }
+            placeholder="Ask ZENRO anything…"
           />
 
           {!messages.some((m) => m.role === "user") && (
