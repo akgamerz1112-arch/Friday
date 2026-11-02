@@ -91,6 +91,15 @@ pub struct WakeStateResponse {
     pub pre_roll: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speech: Option<bool>,
+    /// The clip came from the assistant button (no wake phrase to look for).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manual: Option<bool>,
+    /// The wake model the phone loaded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// The phone heard the wake word in the background and opened the app for Live voice; what was said after it.
+    #[serde(default, rename = "liveText", skip_serializing_if = "Option::is_none")]
+    pub live_text: Option<String>,
 }
 
 /// Polled TTS state so JS can hold "speaking" (and anything gated on it, like the

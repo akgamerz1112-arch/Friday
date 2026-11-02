@@ -58,6 +58,12 @@ export interface WakeWordOpts {
   isBusy: () => boolean;
   onStatus?: (s: "listening" | "idle") => void;
   onCommand: (text: string) => void;
+  /** Whether a bare "Hey Jarvis" (nothing said after it) should do something (Live voice opens). Read at call time. */
+  bareWakeOn?: () => boolean;
+  onBareWake?: () => void;
+  /** The phone heard the wake word while the app was in the background and opened the app for Live voice;
+   *  `text` is what was said after it (may be empty). */
+  onLiveRequest?: (text: string) => void;
   onError?: (msg: string) => void;
   onFatal?: (msg: string) => void;
 }
@@ -141,7 +147,12 @@ export class WakeWordListener {
     }, 150);
   }
 
-  stop(): void {
+  /**
+   * `keepService`: Live voice is about to use the microphone. Pause the engine but keep the phone's foreground
+   * service alive, so it can listen again by itself when the app goes to the background (Android does not let a
+   * NEW microphone service start from there). If the pause is refused, fall back to a full stop.
+   */
+  stop(keepService = false): void {
     this.on = false;
     this.handling = false;
     if (this.bootTimer) {
@@ -157,7 +168,16 @@ export class WakeWordListener {
       this.onVisible = undefined;
     }
     this.opts.onStatus?.("idle");
-    void invoke("plugin:phone|stop_wake_word").catch(() => {});
+    const hardStop = () => void invoke("plugin:phone|stop_wake_word").catch(() => {});
+    if (keepService) {
+      invoke("plugin:phone|device_action", { value: 0, query: "", app: "", mode: "", action: "wake_pause" })
+        .then((r) => {
+          if (!r || (r as { ok?: boolean }).ok !== true) hardStop();
+        })
+        .catch(hardStop);
+    } else {
+      hardStop();
+    }
   }
 
   /**
@@ -225,6 +245,7 @@ export class WakeWordListener {
       speech?: boolean;
       manual?: boolean;
       model?: string;
+      liveText?: string;
     };
     let st: WakeState | null = null;
     try {
@@ -236,6 +257,12 @@ export class WakeWordListener {
     if (typeof st.model === "string") this.model = st.model;
     this.syncName();
     const seq = typeof st.seq === "number" ? st.seq : 0;
+    if (typeof st.liveText === "string") {
+      // The phone already handled this wake (opened the app for Live): don't also answer it from here.
+      this.lastSeq = seq;
+      this.opts.onLiveRequest?.(st.liveText);
+      return;
+    }
     if (this.lastSeq < 0) {
       this.lastSeq = seq; // first poll: baseline, don't react to pre-existing detections
     } else if (seq > this.lastSeq) {
@@ -300,7 +327,10 @@ export class WakeWordListener {
       this.opts.onStatus?.("idle");
       // No clip (a lost reply), or nothing said after the wake: don't pay the recogniser
       // to invent a phantom command.
-      if (!c || !c.speech || !this.on) return;
+      if (!c || !this.on) return;
+      // A bare "Hey Jarvis" is only worth a recogniser call when it can open Live (the phrase must still be heard).
+      const bare = this.opts.bareWakeOn?.() === true;
+      if (!c.speech && !bare) return;
 
       let text = "";
       try {
@@ -325,6 +355,11 @@ export class WakeWordListener {
         console.info(`[wake] ignored — no wake phrase in the clip: "${text.slice(0, 60)}"`);
         return;
       }
+      if (bare && (!c.speech || !clean || isNoiseTranscript(clean))) {
+        if (this.on) this.opts.onBareWake?.();
+        return;
+      }
+      if (!c.speech) return;
       // Drop empty commands and Whisper's stock silence hallucinations ("thank you",
       // "thanks for watching", …) so a wake with no real command doesn't fire a phantom turn.
       if (clean && !isNoiseTranscript(clean) && this.on) {
@@ -421,11 +456,11 @@ function sigOf(opts: WakeWordOpts): string {
  * so it doesn't matter how many times (or how erratically) a React effect fires it.
  * Do NOT wire this to an effect's cleanup — let it own the lifecycle across renders.
  */
-export function syncWakeWord(opts: WakeWordOpts | null): void {
+export function syncWakeWord(opts: WakeWordOpts | null, o: { pause?: boolean } = {}): void {
   if (!inTauri()) return;
   if (!opts || (!(opts.groqKey || "").trim() && !(opts.vertexSaJson || "").trim())) {
     if (current) {
-      current.stop();
+      current.stop(o.pause === true);
       current = null;
       currentSig = null;
     }

@@ -317,3 +317,95 @@ describe("name as the first word", () => {
     expect(heardWakePhrase("Jarvis is the app I'm building")).toBe(false);
   });
 });
+
+describe("Jarvis opens Live voice", () => {
+  const WAV = btoa("RIFF....WAVEfmt ");
+  type OnWake = (clip?: { wav: string; speech: boolean }) => Promise<void>;
+
+  function listen(heard: string, bareWakeOn: boolean) {
+    const onCommand = vi.fn();
+    const onBareWake = vi.fn();
+    const transcribe = vi.fn(async () => heard);
+    const l = new WakeWordListener({
+      isBusy: () => false,
+      onCommand,
+      onBareWake,
+      bareWakeOn: () => bareWakeOn,
+      transcribe,
+    });
+    (l as unknown as { on: boolean }).on = true;
+    const onWake = (l as unknown as { onWake: OnWake }).onWake.bind(l);
+    return { onWake, onCommand, onBareWake, transcribe };
+  }
+
+  async function run(onWake: OnWake, clip: { wav: string; speech: boolean }) {
+    vi.useFakeTimers();
+    const done = onWake(clip);
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+  }
+
+  it("a bare 'Hey Jarvis' opens Live once the phrase is confirmed", async () => {
+    const { onWake, onCommand, onBareWake, transcribe } = listen("Hey Jarvis.", true);
+    await run(onWake, { wav: WAV, speech: false });
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    expect(onBareWake).toHaveBeenCalledTimes(1);
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+
+  it("a false wake (no phrase in the clip) does not open Live", async () => {
+    const { onWake, onBareWake } = listen("so I was saying something else", true);
+    await run(onWake, { wav: WAV, speech: false });
+    expect(onBareWake).not.toHaveBeenCalled();
+  });
+
+  it("with the switch off a bare wake is ignored without a recogniser call", async () => {
+    const { onWake, onBareWake, transcribe } = listen("Hey Jarvis.", false);
+    await run(onWake, { wav: WAV, speech: false });
+    expect(transcribe).not.toHaveBeenCalled();
+    expect(onBareWake).not.toHaveBeenCalled();
+  });
+
+  it("a real command still goes to onCommand", async () => {
+    const { onWake, onCommand, onBareWake } = listen("Hey Jarvis, tell me a joke", true);
+    await run(onWake, { wav: WAV, speech: true });
+    expect(onCommand).toHaveBeenCalledWith("tell me a joke");
+    expect(onBareWake).not.toHaveBeenCalled();
+  });
+
+  it("a wake the phone already handled in the background starts Live from the poll, once", async () => {
+    const onLiveRequest = vi.fn();
+    const onCommand = vi.fn();
+    const l = new WakeWordListener({ isBusy: () => false, onCommand, onLiveRequest });
+    (l as unknown as { on: boolean }).on = true;
+    const poll = pollOf(l);
+    invokeMock.mockResolvedValueOnce({ seq: 0, listening: true }); // baseline
+    await poll();
+    invokeMock.mockResolvedValueOnce({ seq: 1, listening: true, liveText: "mausam batao" });
+    await poll();
+    expect(onLiveRequest).toHaveBeenCalledWith("mausam batao");
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+
+  it("stop(keepService) pauses the engine instead of shutting the service down", async () => {
+    const l = new WakeWordListener({ isBusy: () => false, onCommand: vi.fn() });
+    (l as unknown as { on: boolean }).on = true;
+    invokeMock.mockResolvedValue({ ok: true, summary: "paused" });
+    l.stop(true);
+    await Promise.resolve();
+    expect(invokeMock).toHaveBeenCalledWith(
+      "plugin:phone|device_action",
+      expect.objectContaining({ action: "wake_pause" }),
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith("plugin:phone|stop_wake_word");
+  });
+
+  it("falls back to a full stop when the pause is refused", async () => {
+    const l = new WakeWordListener({ isBusy: () => false, onCommand: vi.fn() });
+    (l as unknown as { on: boolean }).on = true;
+    invokeMock.mockResolvedValue({ ok: false, summary: "no" });
+    l.stop(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(invokeMock).toHaveBeenCalledWith("plugin:phone|stop_wake_word");
+  });
+});

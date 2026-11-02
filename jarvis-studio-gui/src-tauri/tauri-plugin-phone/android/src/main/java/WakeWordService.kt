@@ -112,6 +112,21 @@ class WakeWordService : Service() {
         @Volatile
         var onStartResult: ((Boolean, String?) -> Unit)? = null
 
+        /** True while Live voice has the microphone: the service stays up (so it can start listening again from
+         *  the background, which Android does not let a NEW foreground service do), but the engine is released. */
+        @Volatile var paused = false
+
+        /** Free the microphone for Live voice but keep this foreground service alive. False when nothing to pause. */
+        fun pauseMic(): Boolean = instance?.pauseEngine() ?: false
+
+        /** Start listening again inside the running service. False when it was not paused / could not start. */
+        fun resumeMic(): Boolean = instance?.resumeEngine() ?: false
+
+        /** The app left the screen: if Live had paused the engine, listen again at once ("Hey Jarvis" works in the background). */
+        fun resumeIfPaused() {
+            if (paused) resumeMic()
+        }
+
         /** The assistant button was pressed: start recording a command now. False when the
          *  engine isn't running (wake word off, or still starting). */
         fun manualWake(): Boolean = instance?.manager?.manualTrigger() ?: false
@@ -211,6 +226,35 @@ class WakeWordService : Service() {
         },
     )
 
+    private fun pauseEngine(): Boolean {
+        val m = manager ?: return false
+        if (m.capturing) return false // never in the middle of a command
+        recycleHandler.removeCallbacks(recycleRunnable)
+        m.release()
+        manager = null
+        paused = true
+        android.util.Log.i(TAG, "paused for Live voice (service stays up)")
+        return true
+    }
+
+    private fun resumeEngine(): Boolean {
+        if (!paused) return false
+        paused = false
+        if (manager != null) return true
+        val mgr = newManager()
+        val ok = mgr.start()
+        if (ok) {
+            manager = mgr
+            scheduleRecycle()
+            android.util.Log.i(TAG, "resumed after Live voice")
+        } else {
+            lastError = mgr.lastError
+            android.util.Log.w(TAG, "resume failed (reason=${mgr.lastError}) → stopSelf")
+            stopSelf()
+        }
+        return ok
+    }
+
     private fun scheduleRecycle() {
         recycleHandler.removeCallbacks(recycleRunnable)
         recycleHandler.postDelayed(recycleRunnable, RECYCLE_INTERVAL_MS)
@@ -253,6 +297,7 @@ class WakeWordService : Service() {
         }
         startForegroundCompat()
         if (manager == null) {
+            paused = false
             lastError = null
             val mgr = newManager()
             val ok = mgr.start()
@@ -329,6 +374,7 @@ class WakeWordService : Service() {
 
     override fun onDestroy() {
         android.util.Log.i(TAG, "onDestroy")
+        paused = false
         recycleHandler.removeCallbacks(recycleRunnable)
         manager?.release()
         manager = null

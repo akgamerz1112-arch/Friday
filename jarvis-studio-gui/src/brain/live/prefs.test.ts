@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getLiveOnLaunch, getLiveOnly, setLiveOnLaunch, setLiveOnly } from "./prefs";
+import {
+  getLiveOnLaunch,
+  getLiveOnly,
+  getLiveSarvam,
+  getWakeLive,
+  setLiveOnLaunch,
+  setLiveOnly,
+  setLiveSarvam,
+  setWakeLive,
+} from "./prefs";
 
 const g = globalThis as any;
 afterEach(() => {
@@ -43,5 +52,24 @@ describe("live only", () => {
     setLiveOnly(false);
     expect(getLiveOnly()).toBe(false);
     expect(getLiveOnLaunch()).toBe(true); // independent switches
+  });
+});
+
+describe("Sarvam voice in Live and wake-opens-Live", () => {
+  it("both default to on, also when storage is missing", () => {
+    expect(getLiveSarvam()).toBe(true);
+    expect(getWakeLive()).toBe(true);
+  });
+  it("remember off and on", () => {
+    const m = new Map<string, string>();
+    g.localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => m.set(k, v) };
+    setLiveSarvam(false);
+    setWakeLive(false);
+    expect(getLiveSarvam()).toBe(false);
+    expect(getWakeLive()).toBe(false);
+    setLiveSarvam(true);
+    setWakeLive(true);
+    expect(getLiveSarvam()).toBe(true);
+    expect(getWakeLive()).toBe(true);
   });
 });

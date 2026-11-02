@@ -158,6 +158,8 @@ internal object DirectActions {
                 "call_announce_status" -> callAnnounceStatus(act)
                 "accessibility_off" -> accessibilityOff()
                 "wake_sensitivity" -> wakeSensitivity(act, a.query)
+                "wake_pause" -> res(WakeWordService.pauseMic(), "wake word paused (Live is using the mic)")
+                "wake_resume" -> res(WakeWordService.resumeMic(), "wake word resumed")
                 else -> res(false, "I don't know the device action '${a.action}'.")
             }
         }

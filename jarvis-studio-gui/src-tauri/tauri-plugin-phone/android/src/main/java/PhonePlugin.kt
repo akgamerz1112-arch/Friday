@@ -751,6 +751,8 @@ class PhonePlugin(private val activity: Activity) : Plugin(activity) {
         res.put("model", WakeWordManager.loadedModel)
         // Once the command after the wake has ended, a poll also carries the clip (wake +
         // command, up to ~13 s / ~550 KB, sent once) for wakeword.ts to transcribe.
+        // Woken in the background and the phone opened the app for Live voice: JS starts Live (once).
+        LiveWakeInbox.take()?.let { res.put("liveText", it) }
         WakeWordService.takePreRoll(seq)?.let {
             res.put("preRoll", it.wavBase64)
             res.put("speech", it.speech)

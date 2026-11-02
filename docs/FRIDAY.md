@@ -294,3 +294,22 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
 - **Checked in Google's docs (2026-11-02):** `gemini-3.8-live` supports function calling, and runs it **asynchronously by default** (`behavior: NON_BLOCKING`): the model keeps talking while a tool runs.
   That would let it say "done" before the result arrives, so for 3.8 models `buildSetup` sets `behavior: "BLOCKING"` on every declaration (the model waits for our result). Other Live models don't get the field.
   Still not run against a real session.
+
+## Phase 21 — Sarvam voice in Live, and "Jarvis" brings Live back (v27)
+Built on v26 (the BLOCKING tool behaviour for gemini-3.8 is kept). Nothing here was compiled or run on a phone: CI + device checks decide.
+- **Sarvam voice inside Live.** Live still produces audio, but with the option on (Live ▸ Options ▸ *Sarvam voice*, default ON, needs the Sarvam key + switch from Settings ▸ Voice) the controller drops Gemini's audio and
+  `brain/live/sarvamSpeaker.ts` (`LiveSpeaker`) speaks the model's own text transcript (`outputAudioTranscription`) sentence by sentence through `webSpeechTTS.speak`
+  (= Sarvam, phone voice as the fallback). `interrupted` from the server, or the user's words being recognised while she speaks (when "I can interrupt her" is on), cut it at once.
+  Honest limits: the voice starts a little later than Gemini's own audio (one full sentence + one Sarvam request); Gemini still generates (and bills) its audio; echo on the loudspeaker can still make her interrupt herself (same switch as before).
+  If Sarvam is not usable when Live starts, Gemini's voice is used and the screen says so.
+- **"Jarvis" opens Live.** Option *"Jarvis" bolne par Live khule* (default ON).
+  - App on screen, Live stopped: bare "Hey Jarvis" (confirmed by the recogniser, not a false wake) or "Hey Jarvis <anything not an instant command>" opens Live and starts talking; the sentence is sent to the model as text (`LiveController.sendText`).
+    Instant commands (`matchFastCommand`: torch, volume, open app…) still run at once, no Live.
+  - App in the background: `BackgroundAssistant` (native) runs instant commands as before; anything else opens the app (`LiveWakeInbox` → next `pollWakeWord` carries `liveText` → `useBrain.requestLive` → App opens `LivePanel` with `key` + `initialText`).
+    Needs **Settings ▸ Apps ▸ FRIDAY ▸ Appear on top** (Android refuses to open an app from the background otherwise). Without it the old short Groq answer is used.
+- **Why Live "went off for good" after Back/Home:** Live held the wake engine off by stopping the whole foreground service, and Android does not let a NEW microphone service start from the background, so nothing listened after you left. Now Live only PAUSES the engine
+  (`device_action wake_pause`, `WakeWordService.pauseMic`; the service stays up) and `MainActivity.onStop` resumes it natively (`resumeIfPaused`). If the pause is refused (engine mid-command) JS falls back to the old full stop.
+- **Rust:** `WakeStateResponse` now also carries `manual`, `model` and `liveText`. Before, `manual` and `model` were read by `wakeword.ts` but dropped by the Rust struct, so the assistant-button flag and the loaded wake model never reached JS (this may change wake-name matching a little: check "Hey Friday" and "Hey Jarvis" both still wake).
+- **Still NOT possible:** Live itself in the background. Android freezes the WebView; a real fix is a native Live client (WebSocket + mic + speaker in Kotlin), a separate big job.
+- Tests: `live/sarvamSpeaker.test.ts`, `live/prefs.test.ts`, new cases in `platform/wakeword.test.ts`, `LiveWakeInboxTest.kt`.
+- Device checks: (1) Live: is the voice Sarvam (not Gemini)? how long until the first word? interrupt her mid-sentence; (2) Live running, press Home, say "Hey Jarvis" → Live opens (needs Appear on top); (3) Live running, press Back/Stop, say "Hey Jarvis, aaj ka mausam" → Live opens and answers; (4) "Hey Jarvis torch chalu karo" → torch only, no Live; (5) the update installs over the old app.

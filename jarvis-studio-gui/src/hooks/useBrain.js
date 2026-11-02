@@ -9,8 +9,9 @@
  * Voice (STT/TTS), info-tools, and on-phone control land in later Phase 1/2 steps.
  */
 
-import { getLiveOnLaunch } from "../brain/live/prefs";
+import { getLiveOnLaunch, getWakeLive } from "../brain/live/prefs";
 import { isMobileViewport } from "../utils/isMobileViewport";
+import { matchFastCommand } from "../brain/fastCommands";
 import { turnStart, turnReplied, turnEnd } from "../brain/latency";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBrain } from "../brain";
@@ -2335,6 +2336,9 @@ export function useBrain() {
   const [wakeTriggered, setWakeTriggered] = useState(0);
   // True while the Live voice screen is open: the wake engine is switched off so only one microphone runs.
   const [liveHold, setLiveHold] = useState(false);
+  // "Jarvis" was said and Live voice should open (n counts requests; text = what was said after the name, may be empty).
+  const [liveRequest, setLiveRequest] = useState({ n: 0, text: "" });
+  const requestLive = useCallback((text) => setLiveRequest((r) => ({ n: r.n + 1, text: String(text || "") })), []);
   const alwaysOn = stored.wakeWord !== false; // default ON once a key exists
   const setAlwaysOnMode = useCallback((on) => {
     setStored((prev) => {
@@ -2370,15 +2374,26 @@ export function useBrain() {
             },
             onCommand: (text) => {
               setWakeTriggered((n) => n + 1);
+              // "Jarvis, <something>" opens Live voice, except instant phone commands (torch, volume, open app…),
+              // which run at once without a conversation.
+              if (isMobileViewport() && getWakeLive() && !matchFastCommand(text)) {
+                requestLive(text);
+                return;
+              }
               void sendMessage(text);
             },
+            bareWakeOn: () => isMobileViewport() && getWakeLive(),
+            onBareWake: () => requestLive(""),
+            onLiveRequest: (text) => requestLive(text),
             onError: (msg) => pushWarning(`Wake word: ${msg}`),
             onFatal: (msg) => pushWarning(`Wake word stopped: ${msg}`),
           }
         : null;
-    syncWakeWord(wanted);
+    // While Live voice holds the microphone the engine is only PAUSED (the phone's foreground service stays up),
+    // so it can listen again by itself the moment the app goes to the background.
+    syncWakeWord(wanted, { pause: alwaysOn && liveHold && Boolean(groqKey || saJson) });
     return undefined; // singleton owns lifecycle across re-renders — no teardown here
-  }, [alwaysOn, liveHold, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning]);
+  }, [alwaysOn, liveHold, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning, requestLive]);
 
   // ── Greeting ────────────────────────────────────────────────────────────────
   // FRIDAY introduces herself once, as soon as a key is configured (desktop greets
@@ -2845,6 +2860,7 @@ export function useBrain() {
     getLiveTools,
     runLiveTool,
     setLiveHold,
+    liveRequest,
     wsSend: () => false,
   };
 }

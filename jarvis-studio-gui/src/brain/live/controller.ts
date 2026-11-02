@@ -30,6 +30,19 @@ export interface LiveControllerOptions {
   /** Gemini function declarations the model may call, and the runner for its calls (omit both = talk only). */
   tools?: Record<string, unknown>[];
   onToolCall?: (calls: LiveCall[]) => Promise<LiveCallResult[]>;
+  /**
+   * When given, Gemini's own audio is NOT played: what the model said (its text transcript) is spoken by this
+   * instead (FRIDAY's Sarvam voice). Omit = Gemini's voice.
+   */
+  speaker?: LiveSpeakerLike;
+}
+
+/** What the controller needs from a replacement voice (LiveSpeaker in sarvamSpeaker.ts). */
+export interface LiveSpeakerLike {
+  feed(text: string): void;
+  endTurn(): void;
+  stop(): void;
+  readonly busy: boolean;
 }
 
 export class LiveController {
@@ -71,7 +84,7 @@ export class LiveController {
     }
     this.player = new Player(this.ctx!);
     this.speakTimer = setInterval(() => {
-      const now = this.player?.playing ?? false;
+      const now = (this.player?.playing ?? false) || (this.o.speaker?.busy ?? false);
       if (now !== this.wasSpeaking) {
         this.wasSpeaking = now;
         this.o.onSpeaking?.(now);
@@ -99,8 +112,19 @@ export class LiveController {
       onTurn: this.o.onTurn,
       onFirstAudio: this.o.onFirstAudio,
       onEvent: (e) => {
-        if (e.type === "audio") this.player?.enqueue(base64ToPcm16(e.data), e.rate);
-        else if (e.type === "interrupted") this.player?.stop();
+        const sp = this.o.speaker;
+        if (e.type === "audio") {
+          if (!sp) this.player?.enqueue(base64ToPcm16(e.data), e.rate); // with a replacement voice Gemini's audio is dropped
+        } else if (e.type === "interrupted") {
+          this.player?.stop();
+          sp?.stop();
+        } else if (sp) {
+          if (e.type === "outputText") sp.feed(e.text);
+          else if (e.type === "turnComplete" || e.type === "generationComplete") sp.endTurn();
+          // The user's own words were recognised while she was speaking: that is a real interruption
+          // (the server no longer knows she is "speaking", it finished generating long before the voice ends).
+          else if (e.type === "inputText" && this.allowInterrupt && sp.busy) sp.stop();
+        }
       },
     });
     try {
@@ -112,9 +136,15 @@ export class LiveController {
     this.mic = await startMic(this.ctx!, (pcm) => {
       const level = rms(pcm);
       this.o.onLevel(level);
-      if (!this.allowInterrupt && this.player?.playing) return; // half-duplex: don't listen to ourselves
+      if (!this.allowInterrupt && (this.player?.playing || this.o.speaker?.busy)) return; // half-duplex: don't listen to ourselves
       this.session?.sendAudio(pcm16ToBase64(pcm), level > 0.015);
     });
+  }
+
+  /** Type something to the model as if the user had said it (used for the command that woke Live). */
+  sendText(text: string): void {
+    const t = text.trim();
+    if (t) this.session?.sendText(t);
   }
 
   get dropped(): number {
@@ -129,6 +159,7 @@ export class LiveController {
     this.mic?.stop();
     this.mic = null;
     this.player?.stop();
+    this.o.speaker?.stop();
     this.session?.endAudioStream();
     this.session?.close();
     this.session = null;

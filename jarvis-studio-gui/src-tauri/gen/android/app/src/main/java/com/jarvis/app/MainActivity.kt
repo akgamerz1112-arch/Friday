@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import com.jarvis.phone.AssistInbox
 import com.jarvis.phone.RoutineAlarms
 import com.jarvis.phone.ShareInbox
+import com.jarvis.phone.WakeWordService
 
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,6 +22,13 @@ class MainActivity : TauriActivity() {
     RoutineAlarms.takeTap(intent)
     ShareInbox.take(intent)
     AssistInbox.take(intent)
+  }
+
+  // Live voice pauses the wake engine while it uses the microphone. The moment the app leaves the screen the
+  // engine listens again by itself (the foreground service is still up), so "Hey Jarvis" works from the background.
+  override fun onStop() {
+    super.onStop()
+    WakeWordService.resumeIfPaused()
   }
 
   // A routine notification's tap is taken here, not in PhonePlugin: Tauri registers its

@@ -126,6 +126,7 @@ export default function App() {
     getLiveTools,
     runLiveTool,
     setLiveHold,
+    liveRequest,
     refreshModels,
     rerankModels,
     repairSetup,
@@ -197,6 +198,21 @@ export default function App() {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
   const [liveAuto, setLiveAuto] = useState(false);
+  // "Jarvis" was said: open Live and start talking at once. A new request remounts the panel (key), so it also
+  // works when the Live screen was left open but stopped. `liveInitial` = the sentence said after the name.
+  const [liveInitial, setLiveInitial] = useState("");
+  const [liveKey, setLiveKey] = useState(0);
+  const liveReqN = liveRequest?.n || 0;
+  const liveReqSeen = useRef(0);
+  useEffect(() => {
+    if (!IS_MOBILE || !liveReqN || liveReqN === liveReqSeen.current) return;
+    liveReqSeen.current = liveReqN;
+    setLiveInitial(liveRequest?.text || "");
+    setLiveKey((k) => k + 1);
+    setLiveAuto(true);
+    setLiveOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveReqN]);
   const liveAutoTried = useRef(false);
   // Open straight into Live voice once at launch, as soon as a Gemini key is available (keys load a moment after start).
   useEffect(() => {
@@ -1075,6 +1091,8 @@ export default function App() {
 
       {liveOpen && (
         <LivePanel
+          key={liveKey}
+          initialText={liveInitial}
           getContext={getLiveContext}
           saveTurn={saveLiveTurn}
           getTools={getLiveTools}
@@ -1089,6 +1107,7 @@ export default function App() {
           onClose={() => {
             setLiveOpen(false);
             setLiveAuto(false);
+            setLiveInitial("");
           }}
         />
       )}

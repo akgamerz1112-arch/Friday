@@ -5,6 +5,8 @@ import android.content.Intent
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.BatteryManager
+import android.os.Build
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -68,20 +70,47 @@ object BackgroundAssistant {
     // ── Pipeline ─────────────────────────────────────────────────────────────────
 
     private fun process(ctx: Context, wavB64: String, speech: Boolean, manual: Boolean) {
-        if (!speech) return
+        val live = canOpenLive(ctx)
+        // A bare "Hey Jarvis" is only worth a look when it can open Live.
+        if (!speech && !live) return
         val key = groqKey(ctx)
-        if (key == null) { CallAnnouncer.speak(ctx, "Groq की कुंजी नहीं मिली। ऐप खोलकर डालिए।"); return }
+        if (key == null) {
+            if (speech) CallAnnouncer.speak(ctx, "Groq की कुंजी नहीं मिली। ऐप खोलकर डालिए।")
+            return
+        }
         val heard = transcribe(key, Base64.decode(wavB64, Base64.DEFAULT)) ?: return
-        val text = if (manual) heard.trim() else stripWake(heard) ?: return // no wake phrase = a false wake
-        if (text.isBlank()) return
-        val fast = NativeFast.match(text, Calendar.getInstance())
+        var text = if (manual) heard.trim() else stripWake(heard) ?: return // no wake phrase = a false wake
+        if (!speech) text = "" // nothing real after the name: whatever was transcribed is noise
+        val fast = if (text.isBlank()) null else NativeFast.match(text, Calendar.getInstance())
         if (fast != null) {
             val ok = fast.run(ctx)
             if (!ok) CallAnnouncer.speak(ctx, "ये अभी नहीं हो पाया।")
             else if (fast.say.isNotEmpty()) CallAnnouncer.speak(ctx, fast.say)
             return
         }
+        // Not an instant command: bring FRIDAY to the front and start Live voice (it gets the sentence).
+        if (live) { openLive(ctx, text); return }
+        if (text.isBlank()) return
         CallAnnouncer.speak(ctx, chat(key, text) ?: "अभी जवाब नहीं मिल पाया। थोड़ी देर बाद कोशिश करें।")
+    }
+
+    /** From the background Android only lets an app open its own screen with "Display over other apps" granted. */
+    private fun canOpenLive(ctx: Context): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(ctx)
+
+    private fun openLive(ctx: Context, text: String) {
+        val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: return
+        LiveWakeInbox.request(text)
+        launch.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT,
+        )
+        try {
+            ctx.startActivity(launch)
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "could not open Live from the background: ${e.message}")
+            LiveWakeInbox.take() // nothing will pick it up
+            if (text.isNotBlank()) CallAnnouncer.speak(ctx, "ऐप नहीं खुल पाया। \"Display over other apps\" चालू करें।")
+        }
     }
 
     private val WAKE = Regex(

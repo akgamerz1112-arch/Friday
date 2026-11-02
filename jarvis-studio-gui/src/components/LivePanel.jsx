@@ -1,14 +1,26 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LiveController, NEEDS_TAP } from "../brain/live/controller";
-import { getLiveOnLaunch, setLiveOnLaunch, getLiveOnly, setLiveOnly } from "../brain/live/prefs";
+import {
+  getLiveOnLaunch,
+  setLiveOnLaunch,
+  getLiveOnly,
+  setLiveOnly,
+  getLiveSarvam,
+  setLiveSarvam,
+  getWakeLive,
+  setWakeLive,
+} from "../brain/live/prefs";
+import { LiveSpeaker } from "../brain/live/sarvamSpeaker";
 import { createToolRunner } from "../brain/live/tools";
 import { buildLivePrompt, LIVE_VOICES, DEFAULT_VOICE_FEMALE, DEFAULT_VOICE_MALE } from "../brain/live/persona";
 import { LIVE_MODEL_DEFAULT } from "../brain/live/protocol";
-import { isMaleVoice } from "../brain/platform/sarvamTts";
+import { isMaleVoice, sarvamUsable } from "../brain/platform/sarvamTts";
+import { webSpeechTTS } from "../brain/platform/webspeech";
 import { useAndroidBack } from "../hooks/useAndroidBack";
 
 // Live voice (beta): talk to FRIDAY through Gemini Live — audio goes straight to the model and back,
-// no separate listening / thinking / speaking steps. Conversation only (no phone tools yet).
+// no separate listening / thinking / speaking steps. FRIDAY can act through the same tools as the chat brain.
+// The voice is Sarvam by default (the model's text is spoken); with Sarvam off or unusable it is Gemini's own audio.
 
 const LS = { voice: "jarvis.liveVoice", model: "jarvis.liveModel", interrupt: "jarvis.liveInterrupt" };
 const read = (k, d) => {
@@ -25,6 +37,7 @@ const write = (k, v) => {
     /* storage unavailable */
   }
 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const median = (xs) => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -39,7 +52,7 @@ const STATE_TEXT = {
   closed: "Ended",
 };
 
-export default function LivePanel({ getContext, saveTurn, getTools, runTool, onClose, onOpenSettings, autoStart = false, onActive }) {
+export default function LivePanel({ getContext, saveTurn, getTools, runTool, onClose, onOpenSettings, autoStart = false, onActive, initialText = "" }) {
   const male = isMaleVoice();
   const [voice, setVoice] = useState(() => read(LS.voice, male ? DEFAULT_VOICE_MALE : DEFAULT_VOICE_FEMALE));
   const [model, setModel] = useState(() => read(LS.model, LIVE_MODEL_DEFAULT));
@@ -56,6 +69,9 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
   const [wave, setWave] = useState(() => Array(28).fill(0));
   const [onLaunch, setOnLaunch] = useState(() => getLiveOnLaunch());
   const [liveOnly, setLiveOnlyState] = useState(() => getLiveOnly());
+  const [sarvamOn, setSarvamOn] = useState(() => getLiveSarvam());
+  const [wakeLive, setWakeLiveState] = useState(() => getWakeLive());
+  const [voiceNote, setVoiceNote] = useState("");
   const onActiveRef = useRef(onActive);
   onActiveRef.current = onActive;
   const ctl = useRef(null);
@@ -91,7 +107,7 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
       if (document.hidden && ctl.current) {
         void stop();
         setState("closed");
-        setDetail("App background me gaya, Live band ho gaya. Wapas aane par Live dabao.");
+        setDetail("App background me gaya, Live band ho gaya. \"Jarvis\" bolo ya Live dabao.");
       }
     };
     document.addEventListener("visibilitychange", onHide);
@@ -115,7 +131,24 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
       }
       write(LS.voice, voice);
       write(LS.model, model);
+      // Sarvam voice: the saved key loads a moment after launch, so give it a short moment before deciding.
+      let speaker;
+      setVoiceNote("");
+      if (sarvamOn) {
+        for (let i = 0; i < 6 && !sarvamUsable(); i++) await sleep(200);
+        if (sarvamUsable()) {
+          speaker = new LiveSpeaker({
+            speak: (t) => webSpeechTTS.speak(t),
+            stopNow: () => {
+              void webSpeechTTS.stop();
+            },
+          });
+        } else {
+          setVoiceNote("Sarvam voice chalu nahi (key/switch Settings ▸ Voice me dekho): Gemini ki awaaz use ho rahi hai.");
+        }
+      }
       const c = new LiveController({
+        speaker,
         apiKey,
         apiKeys,
         model: model.trim() || LIVE_MODEL_DEFAULT,
@@ -142,6 +175,8 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
       });
       ctl.current = c;
       await c.start();
+      // Woken by "Jarvis, <something>": hand that sentence to the model as if it had just been said.
+      if (initialText.trim()) c.sendText(initialText);
     } catch (e) {
       if (e && e.message === NEEDS_TAP) {
         ctl.current = null;
@@ -206,6 +241,7 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
       </div>
 
       {error && <div className="lv-error">{error}</div>}
+      {voiceNote && live && <div className="lv-hint">{voiceNote}</div>}
 
       <div className="lv-talk">
         {recent.length === 0 && !error && (
@@ -239,6 +275,14 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
           <input type="checkbox" checked={interrupt} onChange={(e) => toggleInterrupt(e.target.checked)} />
         </label>
         <label className="lv-optrow">
+          <span>Sarvam voice<small>FRIDAY ki apni awaaz (agli baat-cheet se); off = Gemini ki awaaz</small></span>
+          <input type="checkbox" checked={sarvamOn} disabled={live} onChange={(e) => { setSarvamOn(e.target.checked); setLiveSarvam(e.target.checked); }} />
+        </label>
+        <label className="lv-optrow">
+          <span>"Jarvis" bolne par Live khule<small>Torch/volume jaise instant command bina Live ke chalte hain</small></span>
+          <input type="checkbox" checked={wakeLive} onChange={(e) => { setWakeLiveState(e.target.checked); setWakeLive(e.target.checked); }} />
+        </label>
+        <label className="lv-optrow">
           <span>Live only<small>Hide the old text chat (Chat button)</small></span>
           <input type="checkbox" checked={liveOnly} onChange={(e) => { setLiveOnlyState(e.target.checked); setLiveOnly(e.target.checked); }} />
         </label>
@@ -255,7 +299,7 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
         </button>
         <button type="button" className="lv-side" onClick={async () => { await stop(); (onOpenSettings || onClose)(); }}>Settings</button>
       </div>
-      <div className="lv-foot">Beta · sirf baat-cheet, phone control nahi · audio Google ko jaata hai · aapki Gemini key/quota use hota hai</div>
+      <div className="lv-foot">Beta · app band/background me Live nahi chalta: "Jarvis" bolo to Live wapas khulta hai · audio Google ko jaata hai · aapki Gemini key/quota use hota hai</div>
     </div>
   );
 }
