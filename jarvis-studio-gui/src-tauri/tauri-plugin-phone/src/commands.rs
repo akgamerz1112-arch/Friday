@@ -107,27 +107,8 @@ phone_command!(request_overlay_permission() -> ActionResponse);
 phone_command!(get_device_stats() -> DeviceStatsResponse);
 phone_command!(capture_screenshot() -> crate::models::CaptureScreenshotResponse);
 phone_command!(pick_folder() -> PickFolderResponse);
-// list_directory / read_file are written out (not via `phone_command!`) because the request struct
-// has one more field than the positional args: `base64` (Office documents are read as raw bytes).
-// It is optional, so older callers that send only `uri` and `path` keep working.
-#[command]
-pub(crate) async fn list_directory<R: Runtime>(
-    app: AppHandle<R>,
-    uri: String,
-    path: String,
-) -> crate::Result<ListDirectoryResponse> {
-    app.phone().list_directory(FileOpRequest { uri, path, base64: false })
-}
-
-#[command]
-pub(crate) async fn read_file<R: Runtime>(
-    app: AppHandle<R>,
-    uri: String,
-    path: String,
-    base64: Option<bool>,
-) -> crate::Result<ReadFileResponse> {
-    app.phone().read_file(FileOpRequest { uri, path, base64: base64.unwrap_or(false) })
-}
+phone_command!(list_directory(uri: String, path: String) -> ListDirectoryResponse, FileOpRequest);
+phone_command!(read_file(uri: String, path: String) -> ReadFileResponse, FileOpRequest);
 phone_command!(clock_action(action: String, label: String, hour: i32, minute: i32, seconds: i32, days: String) -> ActionResponse, ClockActionRequest);
 phone_command!(calendar_action(action: String, title: String, notes: String, start_millis: i64, end_millis: i64, event_id: i64) -> CalendarResponse, CalendarActionRequest);
 phone_command!(task_finish(task_id: String, state: String, result: String, verification_receipt: String) -> ActionResponse, TaskFinishRequest);

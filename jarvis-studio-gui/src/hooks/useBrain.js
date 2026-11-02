@@ -9,8 +9,6 @@
  * Voice (STT/TTS), info-tools, and on-phone control land in later Phase 1/2 steps.
  */
 
-import { getLiveOnLaunch } from "../brain/live/prefs";
-import { isMobileViewport } from "../utils/isMobileViewport";
 import { turnStart, turnReplied, turnEnd } from "../brain/latency";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBrain } from "../brain";
@@ -2333,8 +2331,6 @@ export function useBrain() {
   // native engine listens locally for free; on detection we record the command,
   // transcribe it (Groq Whisper or Vertex Chirp) and hand it to the brain.
   const [wakeTriggered, setWakeTriggered] = useState(0);
-  // True while the Live voice screen is open: the wake engine is switched off so only one microphone runs.
-  const [liveHold, setLiveHold] = useState(false);
   const alwaysOn = stored.wakeWord !== false; // default ON once a key exists
   const setAlwaysOnMode = useCallback((on) => {
     setStored((prev) => {
@@ -2356,7 +2352,7 @@ export function useBrain() {
     // by config signature — calling it every render is fine — and turns the engine
     // off itself when the toggle/keys go away (opts=null below).
     const wanted =
-      alwaysOn && !liveHold && (groqKey || saJson)
+      alwaysOn && (groqKey || saJson)
         ? {
             groqKey,
             vertexSaJson: saJson,
@@ -2378,17 +2374,14 @@ export function useBrain() {
         : null;
     syncWakeWord(wanted);
     return undefined; // singleton owns lifecycle across re-renders — no teardown here
-  }, [alwaysOn, liveHold, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning]);
+  }, [alwaysOn, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning]);
 
   // ── Greeting ────────────────────────────────────────────────────────────────
   // FRIDAY introduces herself once, as soon as a key is configured (desktop greets
   // from the backend; on the phone there's none, so the brain greets itself).
   const greetedRef = useRef(false);
-  const hasGeminiKey = Boolean(String(stored.geminiKey || "").trim());
   useEffect(() => {
     if (greetedRef.current || !hasKey) return;
-    // The app opens straight into Live voice (which talks by itself): no second, older voice saying hello over it.
-    if (isMobileViewport() && getLiveOnLaunch() && hasGeminiKey) return;
     greetedRef.current = true;
     const text = "हे बॉस!";
     setMessages((prev) =>
@@ -2405,7 +2398,7 @@ export function useBrain() {
         /* silent */
       }
     })();
-  }, [hasKey, hasGeminiKey]);
+  }, [hasKey]);
 
   // ── Live HUD panels (battery / network / weather) ────────────────────────────
   // Real device signals so the Power, Network and Weather panels aren't dead zeros.
@@ -2705,28 +2698,6 @@ export function useBrain() {
 
   // Mirror useWebSocket's return shape exactly so the HUD works unchanged. Fields
   // that have no phone meaning (yet) return inert defaults.
-  // Live voice (beta): the Gemini keys (first = primary; the rest are used only when it hits its limit) and a short list of remembered facts. Nothing else is shared with it.
-  const getLiveContext = useCallback(async () => {
-    const apiKeys = [];
-    for (const part of String(stored.geminiKey || "").split(/[\n,]/)) {
-      const k = part.trim();
-      if (k && !apiKeys.includes(k)) apiKeys.push(k);
-    }
-    const apiKey = apiKeys[0] || "";
-    let facts = [];
-    try {
-      facts = (await memoryRef.current.listFacts()).slice(-25).map((f) => f.text);
-    } catch {
-      /* no facts is fine */
-    }
-    return { apiKey, apiKeys, facts };
-  }, [stored.geminiKey]);
-  // A finished Live turn joins the normal chat history so text mode remembers it.
-  const saveLiveTurn = useCallback(
-    (role, text) => memoryRef.current.appendTurn({ role: role === "user" ? "user" : "assistant", content: text }),
-    [],
-  );
-
   return {
     status,
     messages,
@@ -2831,9 +2802,6 @@ export function useBrain() {
     sendScreen,
     setAlwaysOnMode,
     setConversationModeOn,
-    getLiveContext,
-    saveLiveTurn,
-    setLiveHold,
     wsSend: () => false,
   };
 }

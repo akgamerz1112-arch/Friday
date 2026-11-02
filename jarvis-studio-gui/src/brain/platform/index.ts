@@ -13,14 +13,6 @@ import type {
   PhoneController,
 } from "../operator/controller";
 import { inTauri } from "../tools/httpClient";
-import {
-  base64ToBytes,
-  DocumentError,
-  documentKind,
-  extractDocument,
-  unsupportedDocumentKind,
-  type DocKind,
-} from "../documents/extract";
 import type { PhoneMedia } from "../remote/tv";
 import { makeKV, readJson, writeJson } from "../memory/store";
 
@@ -663,17 +655,6 @@ export const androidPlatform: Platform = {
   },
   files: {
     read: async (path) => {
-      const unsupported = unsupportedDocumentKind(path);
-      if (unsupported) {
-        return {
-          ok: false,
-          summary:
-            unsupported === "pdf"
-              ? "Reading PDF files isn't supported yet. Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files and plain text files can be read."
-              : "The old .doc/.xls/.ppt formats can't be read. Save the file as .docx/.xlsx/.pptx and try again.",
-          error: "unsupported_format",
-        };
-      }
       const folder = getGrantedFolder();
       if (!folder) {
         return {
@@ -683,8 +664,6 @@ export const androidPlatform: Platform = {
         };
       }
       if (!inTauri()) return { ok: false, summary: "This only works on the device." };
-      const kind = documentKind(path);
-      if (kind) return readOfficeDocument(folder.uri, path, kind);
       try {
         const res = await invoke<{ ok: boolean; summary: string; content?: string }>(
           "plugin:phone|read_file",
@@ -786,35 +765,3 @@ export const androidPlatform: Platform = {
   },
   openAccessibilitySettings: () => phoneInvoke("open_accessibility_settings"),
 };
-
-
-/**
- * Word / Excel / PowerPoint: ask the native side for the raw bytes (base64) and turn
- * them into text here. Reuses the existing `read_file` command with `base64: true`
- * — no new bridge command, so the three-spelling rule is untouched.
- */
-async function readOfficeDocument(uri: string, path: string, kind: DocKind): Promise<ToolResult> {
-  try {
-    const res = await invoke<{ ok: boolean; summary: string; content?: string }>("plugin:phone|read_file", {
-      uri,
-      path,
-      base64: true,
-    });
-    if (!res.ok || !res.content) return { ok: false, summary: res.summary || "Couldn't read that document." };
-    const doc = await extractDocument(kind, base64ToBytes(res.content));
-    if (!doc.text.trim()) {
-      return { ok: true, summary: `${path} was opened but contains no readable text (it may hold only images or charts).` };
-    }
-    const note = doc.truncated ? `\n[... ${doc.omittedChars} more characters not shown]` : "";
-    return { ok: true, summary: `Document ${path} (${kind}):\n${doc.text}${note}` };
-  } catch (err) {
-    if (err instanceof DocumentError) {
-      const why =
-        err.code === "not_zip"
-          ? "it isn't a normal Word/Excel/PowerPoint file (it may be password-protected or damaged)"
-          : err.message;
-      return { ok: false, summary: `Couldn't read ${path}: ${why}`, error: "document_error" };
-    }
-    return { ok: false, summary: `Failed: ${String(err)}`, error: "plugin_error" };
-  }
-}
