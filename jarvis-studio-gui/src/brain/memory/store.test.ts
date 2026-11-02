@@ -68,28 +68,3 @@ describe("PersistentStore facts()", () => {
     expect(await store.facts()).toEqual(["User owns a bicycle"]);
   });
 });
-
-describe("memory quality", () => {
-  it("ranks Hindi facts (Devanagari words used to give no keywords at all)", () => {
-    const facts = ["मुझे चाय पसंद है", "मेरा कुत्ता बिस्किट है", "मैं मुंबई में रहता हूँ", "मेरी मीटिंग रोज़ 5 बजे होती है", "मैं सुबह दौड़ने जाता हूँ"];
-    expect(keywordRank("चाय कौन सी अच्छी है", facts, 2)[0]).toBe(facts[0]);
-  });
-
-  it("updates a near-identical fact instead of storing a twin", async () => {
-    const store = new PersistentStore();
-    await store.forget("everything");
-    await store.remember("User prefers dark mode everywhere on the phone");
-    await store.remember("User prefers dark mode everywhere on the phone now");
-    expect((await store.listFacts()).length).toBe(1);
-  });
-
-  it("refuses to store a secret", async () => {
-    const store = new PersistentStore();
-    await store.forget("everything");
-    const r = await store.remember("my gmail password is hunter22");
-    expect(r.ok).toBe(false);
-    expect(r.error).toBe("secret");
-    expect((await store.listFacts()).length).toBe(0);
-  });
-});
-

@@ -10,6 +10,8 @@ import RemoteDesktop from "./components/RemoteDesktop";
 import SetupProgress from "./components/SetupProgress";
 import BootOverlay from "./components/BootOverlay";
 import Customize from "./components/Customize";
+import LivePanel from "./components/LivePanel";
+import { getLiveOnLaunch } from "./brain/live/prefs";
 import AgentActivity from "./components/AgentActivity";
 import CommandPalette from "./components/CommandPalette";
 import { agentById, agentsFor } from "./brain/agents";
@@ -119,6 +121,9 @@ export default function App() {
     dismissWarning,
     clearAgentTasks,
     sendConfig,
+    getLiveContext,
+    saveLiveTurn,
+    setLiveHold,
     refreshModels,
     rerankModels,
     repairSetup,
@@ -188,6 +193,23 @@ export default function App() {
   const [powerOpen, setPowerOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
+  const [liveAuto, setLiveAuto] = useState(false);
+  const liveAutoTried = useRef(false);
+  // Open straight into Live voice once at launch, as soon as a Gemini key is available (keys load a moment after start).
+  useEffect(() => {
+    if (!IS_MOBILE || liveAutoTried.current || !getLiveOnLaunch()) return;
+    let cancelled = false;
+    void getLiveContext().then(({ apiKey }) => {
+      if (cancelled || liveAutoTried.current || !apiKey) return;
+      liveAutoTried.current = true;
+      setLiveAuto(true);
+      setLiveOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [getLiveContext]);
   const [activityOpen, setActivityOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false); // Remote-PC pairing (mobile)
   const openRemote = useCallback(() => setRemoteOpen(true), []);
@@ -1003,6 +1025,10 @@ export default function App() {
             setShowSettings(false);
             setCustomizeOpen(true);
           }}
+          onOpenLive={() => {
+            setShowSettings(false);
+            setLiveOpen(true);
+          }}
         />
       )}
 
@@ -1018,6 +1044,49 @@ export default function App() {
         <div key={toast.id} className="hud-toast" role="status">
           {toast.text}
         </div>
+      )}
+
+      {/* One tap to bring Live voice back after it was closed (no trip through Settings). */}
+      {IS_MOBILE &&
+        !liveOpen &&
+        !showSettings &&
+        !customizeOpen &&
+        !paletteOpen &&
+        !capsOpen &&
+        !powerOpen &&
+        !memoryOpen &&
+        !activityOpen &&
+        !remoteOpen && (
+          <button
+            type="button"
+            className="live-fab"
+            aria-label="Live voice shuru karo"
+            onClick={() => {
+              setLiveAuto(true);
+              setLiveOpen(true);
+            }}
+          >
+            <span className="live-fab-dot" aria-hidden="true" />
+            Live
+          </button>
+        )}
+
+      {liveOpen && (
+        <LivePanel
+          getContext={getLiveContext}
+          saveTurn={saveLiveTurn}
+          autoStart={liveAuto}
+          onActive={setLiveHold}
+          onOpenSettings={() => {
+            setLiveOpen(false);
+            setLiveAuto(false);
+            setShowSettings(true);
+          }}
+          onClose={() => {
+            setLiveOpen(false);
+            setLiveAuto(false);
+          }}
+        />
       )}
 
       {customizeOpen && (

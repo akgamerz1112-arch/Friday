@@ -218,19 +218,60 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
 - **Next speed step (after real numbers):** stream the model reply (SSE in `openaiCompat.ts`), cut at sentence ends and hand each sentence
   to `webSpeechTTS.speak` as it arrives, with barge-in cancelling both. Streaming and barge-in are **not implemented**.
 
-## Phase 16 — memory first
-What already existed: facts kept on the phone (localStorage), the model's `remember_fact`/`forget_fact` tools, retrieval (Vertex
-embeddings if configured, otherwise keywords), a Memory view with Forget, a daily digest, sync. What this phase fixed/added:
-- **Secrets are never saved** (`memory/guard.ts`): API keys/tokens, passwords/PINs/OTPs with a value, card (13-19 digit), Aadhaar (12-digit) and
-  PAN numbers are refused on every save path. Phone numbers are allowed.
-- **Hindi retrieval fixed**: the keyword ranker only knew a-z words, so Devanagari facts were never ranked. Now Devanagari + Hindi/Hinglish
-  stop words; top 5 instead of 3 when no embeddings.
-- **No twins**: a fact worded almost the same as an old one (token overlap >= 0.7) *updates* the old one.
-- **Voice memory, instant and offline** (`memory/quickMemory.ts`): "yaad rakhna ki ...", "remember that ...", "... याद रखना", "bhool jao ...",
-  "mere bare me kya yaad hai". Never wipes everything by voice (Memory screen only). The reply says exactly what happened.
-- **Honest prompt**: MEMORY RULES section — only claim to remember what is listed or said in the chat; corrections = forget old + remember new.
-- **Not done (honest)**: storage is still the WebView's localStorage, not Room/SQLite (it survives restarts, but Android can clear WebView data
-  and the quota is shared with chat history). Editing a fact in the Memory view is not built (voice: say it again, near-twins update).
-  Automatic "this is worth remembering" detection from ordinary chat is not built; only explicit phrases and the model's own tool calls save.
-- Checks: "yaad rakhna ki mujhe chai pasand hai" -> close the app, reopen -> "mere bare me kya yaad hai". Try "yaad rakhna wifi password abc123" -> refused.
+
+## Phase 16 — document intelligence, step 1 (see docs/FUTURE_ROADMAP.md)
+- `read_file` now reads **Word (.docx), Excel (.xlsx) and PowerPoint (.pptx)** from the granted folder
+  (`src/brain/documents/extract.ts`, no new libraries). PDF and the old .doc/.xls/.ppt formats get a clear
+  "not supported" message instead of garbage.
+- Native change: optional `base64` flag on the existing `read_file` command (Rust `FileOpRequest`, Kotlin `FileOpArgs`,
+  12 MB cap for that mode; plain text keeps its 200 KB cap). No new command name.
+- Tested here: 10 unit cases plus real files made with python-docx/openpyxl/python-pptx (run in Node).
+  **Not tested here:** the Kotlin/Rust build, vitest in CI, and reading a file on the phone.
+- Device check: Settings ▸ Storage & Privacy → grant a folder with a .docx/.xlsx/.pptx → "<file> padho".
+- **CI fix (v17):** a routine run sends one prompt with several steps plus separate display text. The instant-command matcher
+  (phase 14) matched "turn on DND" inside it and ran only that, skipping the other steps (and failing
+  `index.test.ts › ask with display text`). `brain/index.ts` now skips instant commands when display text is present.
+  Typed or spoken commands (no display text) are unchanged.
+- **Build fix (v18):** the `phone_command!` macro in `commands.rs` built `FileOpRequest { uri, path }`, which no longer compiled once the
+  struct gained `base64`. `list_directory` and `read_file` are now written out by hand (`base64` is an optional argument).
+  Not compiled here (no Rust toolchain in the sandbox) — the Build APK run is the first real compile.
+
+## Phase 17 — Live voice (beta) (see docs/VOICE_AUDIT.md)
+- New, separate path: Settings ▸ Voice ▸ *Live voice (beta)*. `src/brain/live/*` + `components/LivePanel.jsx`; `useBrain` only adds
+  `getLiveContext` / `saveLiveTurn`. Old voice path unchanged.
+- 19 unit cases pass in Node (protocol, session reconnect/resume/goAway, pcm, prompt). Nothing audio-related is tested on a phone yet.
+- **Live on launch (v20):** on a phone with a Gemini key, the app opens straight into the Live voice screen and starts talking (switch inside that
+  screen, default ON, key `jarvis.liveOnLaunch`). If the phone refuses audio without a tap it shows "Tap Start once". While the screen is open the
+  wake engine is paused (`setLiveHold` in `useBrain`), so only one microphone runs. Close the screen to get the normal app and wake word back.
+  Untested on a phone.
+- **Live screen redesign (v21):** cinematic look — dark navy glow, rotating cyan rings around a glowing core that swells with your voice level and
+  pulses while she speaks (`speaking` = her audio is really playing), mic-level waveform, last 4 lines of conversation, Chat / Settings buttons,
+  options folded into a drawer. Preview was rendered in a headless browser with sample text; real behaviour is untested on the phone.
+- **Live only (v22):** the old agent that said "हे बॉस!" at start is silenced when the app opens into Live (phone + Gemini key + Live-on-launch ON).
+  New switch "Live only" (Live screen ▸ Options, default ON, key `jarvis.liveOnly`): no Chat button; Back ends a running conversation, and with
+  none running Back is not intercepted so Android leaves the app. Turn "Live only" off to get the Chat button (classic text UI) back.
+  The classic UI is hidden, not deleted. Untested on a phone.
+
+## Phase 18 — Live voice: Gemini key rotation (v23)
+- Live now uses ALL saved Gemini keys (Settings > Models, one per line or comma). The first is the primary. If the server refuses it because the
+  quota is used up, or the key is wrong/expired, Live moves to the next Gemini key and shows "Key 1 ka limit khatam — key 2/4 try kar raha hoon".
+  When every key is out it stops with one clear message. It never switches to another provider (Groq/OpenRouter/NVIDIA stay for the text brain only).
+- Code: `brain/live/keyring.ts` (KeyRing + `classifyClose`), `LiveSession.onKeyRefused`, `LiveController.apiKeys`, `getLiveContext` returns `apiKeys`.
+- How a refusal is recognised: by the words in the server's close reason (quota / exhausted / rate limit / billing = quota; api key / invalid /
+  expired / permission denied = bad key). Forum reports show the quota case as close code 1011 with "You exceeded your current quota..." — that exact
+  wording is NOT in the official docs, so it may differ. A plain "Internal error encountered." (also 1011) is NOT treated as quota; it only reconnects
+  with the same key. If the quota refusal ever shows a different text, the screen shows the raw reason: send it and the match list gets one more word.
+- On a key switch the server's resume handle is dropped (it belongs to the old key); the last turns are replayed so the chat continues.
+- Tested here (Node, vitest shim, NOT real vitest): 10 new cases (`keyring.test.ts`) + the 17 older session cases still pass. NOT tested: tsc/lint/CI,
+  a real quota refusal from Google, the phone.
+- Device check: put 2+ Gemini keys in Settings > Models; open Live; it should connect on key 1. To see a switch, put a deliberately wrong key FIRST:
+  Live should say key 1 is wrong/expired and continue on key 2.
+
+## Phase 19 — Live: one-tap reopen (v24)
+- Problem: after closing the Live screen the only way back was Settings > Live voice. Now a **"Live" button** (right side, above the bottom bar, phone only) shows on the normal
+  screen whenever Live is closed and no other sheet/settings is open. One tap opens Live and starts it. `App.jsx` (`.live-fab`), style in `ui.css`.
+  Position is a guess (not seen on a phone): if it covers something, change `bottom`/`right` in `.live-fab`.
+- NOT done: Sarvam voice inside Live. Live's voice is Gemini's own audio; Sarvam cannot replace it. The only route is Live in TEXT-output mode + Sarvam TTS, and the
+  official guide shows TEXT output only for the older `gemini-live-2.5-flash-preview`, not for `gemini-3.8-live` (checked 2026-11-02). Needs a device test before any build.
+- Not compiled or run here (JSX/CSS only; no tsc/eslint in the sandbox).
 

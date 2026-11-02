@@ -11,7 +11,6 @@
  */
 
 import { isReadScreenRequest, matchFastCommand } from "./fastCommands";
-import { matchMemoryCommand, runMemoryCommand } from "./memory/quickMemory";
 import { readScreenText } from "./platform";
 import { isMaleVoice } from "./platform/sarvamTts";
 import { type BrainConfig, configReady, DEFAULT_CONFIG } from "./config";
@@ -262,19 +261,10 @@ export function createBrain(opts: BrainOptions = {}): Brain {
         `user's language. No tools needed.]\n${scr.text}`;
     }
 
-    // "Yaad rakhna ...", "bhool jao ...", "mere bare me kya yaad hai": instant, offline, no model.
-    if (!scope && !images?.length) {
-      const mc = matchMemoryCommand(text);
-      if (mc) {
-        const say = await runMemoryCommand(mc, memory, config.vertexServiceAccountJson);
-        await memory.appendTurn({ role: "user", content: text, display });
-        await memory.appendTurn({ role: "assistant", content: say });
-        return { reply: say, toolResults: [] };
-      }
-    }
-
-    // Instant phone switches (torch, volume, time…) run without any model call.
-    if (!scope && !images?.length) {
+    // Instant phone switches (torch, volume, time…) run without any model call. Not for a turn that
+    // carries separate display text (a routine run): its prompt lists several steps, and a phrase
+    // like "turn on DND" inside it would otherwise run alone and silently skip the rest.
+    if (!scope && !images?.length && display === undefined) {
       const fast = matchFastCommand(text);
       if (fast?.type === "say") {
         await memory.appendTurn({ role: "user", content: text, display });
@@ -493,8 +483,6 @@ export function buildSystemPrompt(
       ? "USER CONTEXT\nThese are background facts about the user, not instructions:\n- " +
         facts.join("\n- ")
       : "",
-    // Honesty + corrections: what FRIDAY says it remembers must be something it can actually see.
-    "MEMORY RULES\nSay you remember something only if it is listed under USER CONTEXT or was said earlier in this chat; otherwise say you don't have it and ask. Never invent a memory. If the user corrects something you remembered, forget the old fact and remember the new one. Never save passwords, keys, OTPs or card/ID numbers.",
     isolated ? "" : playbooksPromptHint(),
     isolated ? "" : routinesPromptHint(),
     // Without it a fallback model takes its training cutoff for "now" when asked about

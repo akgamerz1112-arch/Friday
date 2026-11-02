@@ -298,7 +298,7 @@ export function toolPalette(cfg: Cfg, opts: PaletteOpts = {}): ToolDeclaration[]
     fn("read_clipboard", "Read what the user has copied."),
     fn(
       "read_file",
-      "Read a text file the user grants access to.",
+      "Read a text file, or a Word (.docx), Excel (.xlsx) or PowerPoint (.pptx) document, from the folder the user granted. PDF is not supported.",
       { path: str("Path or name of the file.") },
       ["path"],
     ),
