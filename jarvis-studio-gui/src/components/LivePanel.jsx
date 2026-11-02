@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { LiveController } from "../brain/live/controller";
+import { LiveController, NEEDS_TAP } from "../brain/live/controller";
+import { getLiveOnLaunch, setLiveOnLaunch } from "../brain/live/prefs";
 import { buildLivePrompt, LIVE_VOICES, DEFAULT_VOICE_FEMALE, DEFAULT_VOICE_MALE } from "../brain/live/persona";
 import { LIVE_MODEL_DEFAULT } from "../brain/live/protocol";
 import { isMaleVoice } from "../brain/platform/sarvamTts";
@@ -37,7 +38,7 @@ const STATE_TEXT = {
   closed: "Ended",
 };
 
-export default function LivePanel({ getContext, saveTurn, onClose }) {
+export default function LivePanel({ getContext, saveTurn, onClose, autoStart = false, onActive }) {
   const male = isMaleVoice();
   const [voice, setVoice] = useState(() => read(LS.voice, male ? DEFAULT_VOICE_MALE : DEFAULT_VOICE_FEMALE));
   const [model, setModel] = useState(() => read(LS.model, LIVE_MODEL_DEFAULT));
@@ -49,6 +50,10 @@ export default function LivePanel({ getContext, saveTurn, onClose }) {
   const [level, setLevel] = useState(0);
   const [delays, setDelays] = useState([]);
   const [dropped, setDropped] = useState(0);
+  const [needTap, setNeedTap] = useState(false);
+  const [onLaunch, setOnLaunch] = useState(() => getLiveOnLaunch());
+  const onActiveRef = useRef(onActive);
+  onActiveRef.current = onActive;
   const ctl = useRef(null);
   const endRef = useRef(null);
   const live = state === "connecting" || state === "ready" || state === "reconnecting";
@@ -68,12 +73,18 @@ export default function LivePanel({ getContext, saveTurn, onClose }) {
     onClose();
   });
   useEffect(() => () => void stop(), [stop]);
+  // While this screen is open the always-listening wake engine is paused, so two microphones never run at once.
+  useEffect(() => {
+    onActiveRef.current?.(true);
+    return () => onActiveRef.current?.(false);
+  }, []);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [lines]);
 
   const start = async () => {
     setError("");
+    setNeedTap(false);
     setLines([]);
     setDelays([]);
     setDropped(0);
@@ -105,6 +116,12 @@ export default function LivePanel({ getContext, saveTurn, onClose }) {
       ctl.current = c;
       await c.start();
     } catch (e) {
+      if (e && e.message === NEEDS_TAP) {
+        ctl.current = null;
+        setNeedTap(true);
+        setState("idle");
+        return;
+      }
       const msg = e && e.name === "NotAllowedError"
         ? "Microphone permission was not given. Allow Microphone for FRIDAY in phone Settings ▸ Apps."
         : String((e && e.message) || e);
@@ -113,6 +130,12 @@ export default function LivePanel({ getContext, saveTurn, onClose }) {
       setState("closed");
     }
   };
+
+  // Opened by the app at launch: begin talking right away (falls back to a "tap Start" hint if the phone insists on a tap).
+  useEffect(() => {
+    if (autoStart) void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleInterrupt = (v) => {
     setInterrupt(v);
@@ -140,7 +163,7 @@ export default function LivePanel({ getContext, saveTurn, onClose }) {
       {error && <div style={{ background: "#3a1418", border: "1px solid #7a2a33", borderRadius: 8, padding: 10, margin: "6px 0", fontSize: 14 }}>{error}</div>}
 
       <div style={{ flex: 1, overflowY: "auto", margin: "8px 0", fontSize: 15, lineHeight: 1.45 }}>
-        {lines.length === 0 && !error && <div style={{ opacity: 0.6 }}>{live ? "Say something…" : "Tap Start, then talk like you would to a friend. Headphones work best."}</div>}
+        {lines.length === 0 && !error && <div style={{ opacity: 0.6 }}>{live ? "Say something…" : needTap ? "Tap Start once — the phone needs a tap before it lets me talk." : "Tap Start, then talk like you would to a friend. Headphones work best."}</div>}
         {lines.map((t, i) => (
           <div key={i} style={{ margin: "6px 0", textAlign: t.role === "user" ? "right" : "left", color: t.role === "user" ? "#9fb4c0" : "#dff6ff" }}>{t.text}</div>
         ))}
@@ -167,6 +190,11 @@ export default function LivePanel({ getContext, saveTurn, onClose }) {
       <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, marginBottom: 12 }}>
         <span>I can interrupt her<br /><span style={{ opacity: 0.65, fontSize: 12 }}>Turn off if she keeps cutting herself on loudspeaker</span></span>
         <input type="checkbox" checked={interrupt} onChange={(e) => toggleInterrupt(e.target.checked)} style={{ width: 22, height: 22 }} />
+      </label>
+
+      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, marginBottom: 12 }}>
+        <span>Open Live when the app starts</span>
+        <input type="checkbox" checked={onLaunch} onChange={(e) => { setOnLaunch(e.target.checked); setLiveOnLaunch(e.target.checked); }} style={{ width: 22, height: 22 }} />
       </label>
 
       <button type="button" onClick={live ? stop : start} style={{ background: live ? "#7a2a33" : "#0f8fa8", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 17, fontWeight: 600 }}>

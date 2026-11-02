@@ -8,6 +8,9 @@ import { Player } from "./player";
 import { LiveSession, type SessionState, type Turn } from "./session";
 import { LIVE_MODEL_DEFAULT } from "./protocol";
 
+/** Thrown by start() when the phone wants one tap before audio may play (not a real error). */
+export const NEEDS_TAP = "NEEDS_TAP";
+
 export interface LiveControllerOptions {
   apiKey: string;
   systemInstruction: string;
@@ -41,7 +44,18 @@ export class LiveController {
   async start(): Promise<void> {
     const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
     this.ctx = new Ctx();
-    await this.ctx!.resume(); // the tap that opened this screen counts as the user gesture
+    // A tap on "Start" lets audio run. When the screen opens by itself at app launch the WebView may keep
+    // audio suspended until the first tap: say so instead of hanging.
+    await Promise.race([this.ctx!.resume(), new Promise((r) => setTimeout(r, 700))]);
+    if (this.ctx!.state !== "running") {
+      try {
+        await this.ctx!.close();
+      } catch {
+        /* already closed */
+      }
+      this.ctx = null;
+      throw new Error(NEEDS_TAP);
+    }
     this.player = new Player(this.ctx!);
     this.session = new LiveSession({
       apiKey: this.o.apiKey,

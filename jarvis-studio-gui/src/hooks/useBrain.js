@@ -2331,6 +2331,8 @@ export function useBrain() {
   // native engine listens locally for free; on detection we record the command,
   // transcribe it (Groq Whisper or Vertex Chirp) and hand it to the brain.
   const [wakeTriggered, setWakeTriggered] = useState(0);
+  // True while the Live voice screen is open: the wake engine is switched off so only one microphone runs.
+  const [liveHold, setLiveHold] = useState(false);
   const alwaysOn = stored.wakeWord !== false; // default ON once a key exists
   const setAlwaysOnMode = useCallback((on) => {
     setStored((prev) => {
@@ -2352,7 +2354,7 @@ export function useBrain() {
     // by config signature — calling it every render is fine — and turns the engine
     // off itself when the toggle/keys go away (opts=null below).
     const wanted =
-      alwaysOn && (groqKey || saJson)
+      alwaysOn && !liveHold && (groqKey || saJson)
         ? {
             groqKey,
             vertexSaJson: saJson,
@@ -2374,7 +2376,7 @@ export function useBrain() {
         : null;
     syncWakeWord(wanted);
     return undefined; // singleton owns lifecycle across re-renders — no teardown here
-  }, [alwaysOn, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning]);
+  }, [alwaysOn, liveHold, stored.groqKey, stored.vertexSaJson, sendMessage, pushWarning]);
 
   // ── Greeting ────────────────────────────────────────────────────────────────
   // FRIDAY introduces herself once, as soon as a key is configured (desktop greets
@@ -2821,6 +2823,7 @@ export function useBrain() {
     setConversationModeOn,
     getLiveContext,
     saveLiveTurn,
+    setLiveHold,
     wsSend: () => false,
   };
 }

@@ -240,3 +240,7 @@ Build failed with "base64: invalid input": the secret ANDROID_KEYSTORE_BASE64 di
 - New, separate path: Settings ▸ Voice ▸ *Live voice (beta)*. `src/brain/live/*` + `components/LivePanel.jsx`; `useBrain` only adds
   `getLiveContext` / `saveLiveTurn`. Old voice path unchanged.
 - 19 unit cases pass in Node (protocol, session reconnect/resume/goAway, pcm, prompt). Nothing audio-related is tested on a phone yet.
+- **Live on launch (v20):** on a phone with a Gemini key, the app opens straight into the Live voice screen and starts talking (switch inside that
+  screen, default ON, key `jarvis.liveOnLaunch`). If the phone refuses audio without a tap it shows "Tap Start once". While the screen is open the
+  wake engine is paused (`setLiveHold` in `useBrain`), so only one microphone runs. Close the screen to get the normal app and wake word back.
+  Untested on a phone.
