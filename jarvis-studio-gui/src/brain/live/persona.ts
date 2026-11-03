@@ -12,8 +12,8 @@ export interface LivePromptOptions {
 const MAX_FACTS = 25;
 const MAX_FACT_CHARS = 200;
 
-export function buildLivePrompt({ male, facts }: LivePromptOptions): string {
-  const name = male ? "JARVIS" : "FRIDAY";
+export function buildLivePrompt({ facts }: LivePromptOptions): string {
+  const name = "ZENRO";
   const lines = [
     `You are ${name}, the user's close, clever friend who happens to be an AI. You are talking out loud, live, on a phone.`,
     "",

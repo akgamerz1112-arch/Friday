@@ -3,8 +3,8 @@ import { buildLivePrompt } from "./persona";
 
 describe("buildLivePrompt", () => {
   it("names the assistant by voice and says what the tools are for", () => {
-    expect(buildLivePrompt({ male: false, facts: [] })).toContain("You are FRIDAY");
-    expect(buildLivePrompt({ male: true, facts: [] })).toContain("You are JARVIS");
+    expect(buildLivePrompt({ male: false, facts: [] })).toContain("You are ZENRO");
+    expect(buildLivePrompt({ male: true, facts: [] })).toContain("You are ZENRO");
     expect(buildLivePrompt({ male: false, facts: [] })).toContain("call the right tool at once");
     expect(buildLivePrompt({ male: false, facts: [] })).toContain("Never say remembering is blocked");
   });
