@@ -24,6 +24,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { isMobileViewport } from "./utils/isMobileViewport";
 import "./index.css";
 import "./ui.css";
+import "./hud/zenro-home.css";
 
 // Both windows load the same page. Detect which one we are by reading the
 // Tauri-injected window label. Falls back to "main" in browser dev mode.

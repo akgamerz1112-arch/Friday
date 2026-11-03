@@ -97,6 +97,16 @@ function HeroClock() {
   );
 }
 
+/* Phone hero: just a calm greeting. No ticking clock, so nothing re-renders every second. */
+function HeroGreeting() {
+  const h = new Date().getHours();
+  return (
+    <div className="hero-clock hero-clock--zen">
+      <div className="hero-greet">{greeting(h)}</div>
+    </div>
+  );
+}
+
 /* The ask box: a message goes straight to JARVIS and the reply appears above it. */
 function AskBar({ onSend, onListen, status, placeholder }) {
   const [text, setText] = useState("");
@@ -206,6 +216,8 @@ export function JarvisHUD({
   activeAgent,
   onPickAgent,
   onToggleAgents,
+  onOpenActivity,
+  onOpenLive,
 }) {
   const c = config;
   const d = telemetry || DEFAULT_TELEMETRY;
@@ -339,6 +351,8 @@ export function JarvisHUD({
     memory: [memoryOpen, () => setMemoryOpen(true)],
     skills: [skillsOpen, () => setSkillsOpen(true)],
     caps: [capsOpen, () => setCapsOpen(true)],
+    activity: [false, () => onOpenActivity && onOpenActivity()],
+    settings: [false, () => onOpenSettings && onOpenSettings()],
   };
   const ask = (t) => {
     onSend(t);
@@ -377,8 +391,20 @@ export function JarvisHUD({
       </header>
 
       <main className="home-main" ref={mainRef}>
-        <aside className="home-col home-col--left" aria-label="Cards">
-          {IS_MOBILE && (
+        {IS_MOBILE ? (
+          <details className="zen-more">
+            <summary>More</summary>
+            <div className="zen-more-links">
+              <button type="button" onClick={() => setSkillsOpen(true)}>
+                Skills
+              </button>
+              <button type="button" onClick={() => setCapsOpen(true)}>
+                Capabilities
+              </button>
+              <button type="button" onClick={() => onOpenLive && onOpenLive()}>
+                Live voice
+              </button>
+            </div>
             <ReadinessWidget
               sysInfo={sysInfo}
               appControlOn={appControlOn}
@@ -389,13 +415,18 @@ export function JarvisHUD({
               onOpenRemote={onOpenRemote}
               onOpenAppControl={() => runAction({ type: "open_a11y_settings" })}
             />
-          )}
-          {IS_MOBILE && <RoutinesWidget status={status} runAction={runAction} onSend={onSend} />}
-          {column("left")}
-        </aside>
+            <RoutinesWidget status={status} runAction={runAction} onSend={onSend} />
+            {column("left")}
+            {column("right")}
+          </details>
+        ) : (
+          <aside className="home-col home-col--left" aria-label="Cards">
+            {column("left")}
+          </aside>
+        )}
 
         <section className="home-hero" aria-label="ZENRO">
-          <HeroClock />
+          {IS_MOBILE ? <HeroGreeting /> : <HeroClock />}
           <Core
             status={shownStatus}
             rgb={c.rgb}
@@ -455,14 +486,16 @@ export function JarvisHUD({
           )}
         </section>
 
-        <aside className="home-col home-col--right" aria-label="More cards">
-          {column("right")}
-        </aside>
+        {!IS_MOBILE && (
+          <aside className="home-col home-col--right" aria-label="More cards">
+            {column("right")}
+          </aside>
+        )}
       </main>
 
       {IS_MOBILE && (
         <nav className="home-tabs" aria-label="Menus">
-          {NAV.slice(0, 2).map((n) => (
+          {MOBILE_NAV.slice(0, 2).map((n) => (
             <TabButton key={n.id} n={n} on={openNav[n.id]} badge={n.id === "chat" && unread} />
           ))}
           <button
@@ -477,7 +510,7 @@ export function JarvisHUD({
               strokeWidth={1.8}
             />
           </button>
-          {NAV.slice(2).map((n) => (
+          {MOBILE_NAV.slice(2).map((n) => (
             <TabButton key={n.id} n={n} on={openNav[n.id]} />
           ))}
         </nav>
@@ -547,6 +580,14 @@ export function JarvisHUD({
     </div>
   );
 }
+
+// Phone bottom bar: Chat · Memory · (mic) · Activity · Settings.
+const MOBILE_NAV = [
+  { id: "chat", label: "Chat", icon: "chat" },
+  { id: "memory", label: "Memory", icon: "memory" },
+  { id: "activity", label: "Activity", icon: "activity" },
+  { id: "settings", label: "Settings", icon: "settings" },
+];
 
 function TabButton({ n, on: [isOn, open], badge }) {
   return (

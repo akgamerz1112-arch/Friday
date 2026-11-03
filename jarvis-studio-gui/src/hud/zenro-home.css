@@ -1,0 +1,47 @@
+/* zenro-home.css — ZENRO phone home: pure black, electric cyan, one orb, no clutter.
+   Scoped to .home--phone so the desktop HUD is untouched. Loaded after home.css. */
+
+.home--phone {
+  --h-bg: #000;
+  --h-card: #070b10;
+  --h-line: rgba(80, 200, 255, 0.10);
+  --h-line-2: rgba(80, 200, 255, 0.18);
+  --h-t1: #eaf6ff;
+  --h-t2: #8fb1c6;
+  --h-t3: #5b7a8d;
+  background: #000;
+}
+.home--phone .home-bg::before { opacity: 0; }
+.home--phone .home-bg::after {
+  background: radial-gradient(60% 38% at 50% 38%, color-mix(in oklab, var(--ac) 14%, transparent), transparent 70%);
+}
+.home--phone .home-tabs { background: rgba(0, 0, 0, 0.9); border-top-color: var(--h-line); }
+
+/* Greeting only (no clock) */
+.home--phone .hero-clock--zen { text-align: center; }
+.home--phone .hero-clock--zen .hero-greet {
+  font-family: var(--disp); font-weight: 500; font-size: 15px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--h-t2);
+}
+
+/* Bigger orb on phones */
+.home--phone { --orb: clamp(170px, 30vh, 270px); }
+
+/* "More" drawer: status cards live here, closed by default */
+.zen-more { order: 5; margin: 6px 0 0; }
+.home--phone .home-main { display: flex; flex-direction: column; }
+.home--phone .home-hero { flex: 1 1 auto; }
+.zen-more > summary {
+  list-style: none; cursor: pointer; width: max-content; margin: 0 auto;
+  padding: 6px 16px; border: 1px solid var(--h-line-2); border-radius: 999px;
+  color: var(--h-t2); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.zen-more > summary::-webkit-details-marker { display: none; }
+.zen-more[open] > summary { color: var(--ac); border-color: var(--ac); }
+.zen-more-links { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+.zen-more-links button {
+  height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--h-line-2); background: var(--h-card); color: var(--h-t1); font-size: 13px;
+}
+.zen-more-links button:active { background: rgba(255, 255, 255, 0.06); }
+.zen-more > *:not(summary):not(.zen-more-links) { margin-top: 10px; }
