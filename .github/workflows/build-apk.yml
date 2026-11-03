@@ -41,6 +41,9 @@ jobs:
               mkdir -p ~/.android
               cp /tmp/fixed.keystore ~/.android/debug.keystore
               echo "Using the fixed key."
+              FP=$(keytool -list -keystore /tmp/fixed.keystore -storepass android -alias androiddebugkey 2>/dev/null | grep -i "SHA-256" | sed 's/.*: //' | tr -d ':' | tr 'A-F' 'a-f')
+              echo "Fixed key SHA-256: $FP"
+              echo "FIXED_FP=$FP" >> "$GITHUB_ENV"
             else
               echo "::warning::ANDROID_KEYSTORE_BASE64 is not a valid keystore (wrong or cut paste). Building with a random key, so this APK cannot update the installed app."
             fi
@@ -52,6 +55,21 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
         run: npx tauri android build --debug --apk --target aarch64
+      - name: Re-sign APK with the fixed key and verify the certificate
+        if: env.FIXED_FP != ''
+        working-directory: jarvis-studio-gui
+        run: |
+          set -e
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+          for APK in $(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk'); do
+            echo "Re-signing $APK"
+            "$BT/apksigner" sign --ks /tmp/fixed.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android "$APK"
+            GOT=$("$BT/apksigner" verify --print-certs "$APK" | grep -i "certificate SHA-256 digest" | head -1 | awk '{print $NF}' | tr 'A-F' 'a-f')
+            echo "APK cert SHA-256: $GOT"
+            if [ "$GOT" != "$FIXED_FP" ]; then echo "::error::APK cert does not match the fixed key"; exit 1; fi
+          done
+          echo "APK cert matches the fixed key."
       - uses: actions/upload-artifact@v4
         with:
           name: jarvis-apk
