@@ -16,15 +16,22 @@ afterEach(() => {
 });
 
 describe("live on launch", () => {
-  it("defaults to on, also when storage is missing", () => {
-    expect(getLiveOnLaunch()).toBe(true);
+  it("defaults to off, also when storage is missing", () => {
+    expect(getLiveOnLaunch()).toBe(false);
     g.localStorage = { getItem: () => null, setItem: () => {} };
-    expect(getLiveOnLaunch()).toBe(true);
+    expect(getLiveOnLaunch()).toBe(false);
   });
   it("remembers off and on", () => {
     const m = new Map<string, string>();
     g.localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => m.set(k, v) };
     setLiveOnLaunch(false);
+    expect(getLiveOnLaunch()).toBe(false);
+    setLiveOnLaunch(true);
+    expect(getLiveOnLaunch()).toBe(true);
+  });
+  it("ignores the old jarvis.liveOnLaunch key (stays off until switched on again)", () => {
+    const m = new Map<string, string>([["jarvis.liveOnLaunch", "1"]]);
+    g.localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => m.set(k, v) };
     expect(getLiveOnLaunch()).toBe(false);
     setLiveOnLaunch(true);
     expect(getLiveOnLaunch()).toBe(true);
@@ -38,7 +45,7 @@ describe("live on launch", () => {
         throw new Error("blocked");
       },
     };
-    expect(getLiveOnLaunch()).toBe(true);
+    expect(getLiveOnLaunch()).toBe(false);
     setLiveOnLaunch(false);
   });
 });
@@ -51,7 +58,7 @@ describe("live only", () => {
     expect(getLiveOnly()).toBe(true);
     setLiveOnly(false);
     expect(getLiveOnly()).toBe(false);
-    expect(getLiveOnLaunch()).toBe(true); // independent switches
+    expect(getLiveOnLaunch()).toBe(false); // independent switches
   });
 });
 

@@ -1,11 +1,11 @@
-/** "Open straight into Live voice when the app starts" — one on/off switch, default ON, kept on the phone. */
-const KEY = "jarvis.liveOnLaunch";
+/** "Open straight into Live voice when the app starts" — one on/off switch, default OFF, kept on the phone. */
+const KEY = "zenro.liveOnLaunch";
 
 export function getLiveOnLaunch(): boolean {
   try {
-    return globalThis.localStorage?.getItem(KEY) !== "0";
+    return globalThis.localStorage?.getItem(KEY) === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 

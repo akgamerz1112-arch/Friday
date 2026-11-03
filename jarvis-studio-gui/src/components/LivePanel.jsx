@@ -208,7 +208,7 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
   const last = delays.length ? delays[delays.length - 1] : null;
   const med = median(delays);
   const sec = (ms) => (ms == null ? "–" : `${(ms / 1000).toFixed(1)} s`);
-  const name = male ? "JARVIS" : "FRIDAY";
+  const name = "ZENRO";
   const label = needTap && !live ? "Tap to begin" : state === "ready" ? (speaking ? "Speaking" : "Listening") : STATE_TEXT[state];
   const tone = speaking ? "#7dd3fc" : state === "ready" ? "#22d3ee" : state === "reconnecting" || state === "connecting" ? "#fbbf24" : "#64748b";
   const glow = Math.min(1, level * 9);
@@ -275,7 +275,7 @@ export default function LivePanel({ getContext, saveTurn, getTools, runTool, onC
           <input type="checkbox" checked={interrupt} onChange={(e) => toggleInterrupt(e.target.checked)} />
         </label>
         <label className="lv-optrow">
-          <span>Sarvam voice<small>FRIDAY ki apni awaaz (agli baat-cheet se); off = Gemini ki awaaz</small></span>
+          <span>Sarvam voice<small>ZENRO ki apni awaaz (agli baat-cheet se); off = Gemini ki awaaz</small></span>
           <input type="checkbox" checked={sarvamOn} disabled={live} onChange={(e) => { setSarvamOn(e.target.checked); setLiveSarvam(e.target.checked); }} />
         </label>
         <label className="lv-optrow">
